@@ -18,7 +18,10 @@
     "lint:deps": "depcruise src --config .dependency-cruiser.cjs",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
-    "db:reset": "docker compose down -v && docker compose up -d --wait"
+    "db:reset": "docker compose down -v && docker compose up -d --wait && npm run db:migrate",
+    "db:migrate": "tsx src/infrastructure/database/migrate.ts",
+    "db:codegen": "kysely-codegen --dialect postgres --url env(MIGRATION_DATABASE_URL) --exclude-pattern kysely_* --date-parser string --out-file src/infrastructure/database/schema.ts",
+    "db:codegen:check": "kysely-codegen --dialect postgres --url env(MIGRATION_DATABASE_URL) --exclude-pattern kysely_* --date-parser string --out-file src/infrastructure/database/schema.ts --verify"
   },
   "dependencies": {
     "@fastify/swagger": "^9.9.5",
@@ -36,6 +39,7 @@
     "@types/pg": "^8.23.1",
     "dependency-cruiser": "^18.8.0",
     "jest": "^30.5.2",
+    "kysely-codegen": "^0.20.0",
     "ts-jest": "^29.4.15",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3"
