@@ -1,5 +1,6 @@
 import { Type } from 'typebox';
 import { buildApp, type App } from '../../../../src/infrastructure/adapters/inbound/http/app';
+import { stubUseCases } from '../../../support/use-cases';
 
 const healthyDatabase = async (): Promise<void> => {};
 const downDatabase = async (): Promise<void> => {
@@ -15,7 +16,7 @@ describe('aplicación HTTP', () => {
 
   describe('GET /health', () => {
     it('responde 200 si la base responde', async () => {
-      app = await buildApp({ checkDatabase: healthyDatabase });
+      app = await buildApp({ checkDatabase: healthyDatabase, useCases: stubUseCases() });
 
       const response = await app.inject({ method: 'GET', url: '/health' });
 
@@ -24,7 +25,7 @@ describe('aplicación HTTP', () => {
     });
 
     it('responde 503 si la base no responde, sin exponer el error', async () => {
-      app = await buildApp({ checkDatabase: downDatabase });
+      app = await buildApp({ checkDatabase: downDatabase, useCases: stubUseCases() });
 
       const response = await app.inject({ method: 'GET', url: '/health' });
 
@@ -35,7 +36,7 @@ describe('aplicación HTTP', () => {
 
   describe('formato de errores', () => {
     beforeEach(async () => {
-      app = await buildApp({ checkDatabase: healthyDatabase });
+      app = await buildApp({ checkDatabase: healthyDatabase, useCases: stubUseCases() });
       app.post(
         '/test/validation',
         {
@@ -123,7 +124,7 @@ describe('aplicación HTTP', () => {
 
   describe('correlationId', () => {
     beforeEach(async () => {
-      app = await buildApp({ checkDatabase: healthyDatabase });
+      app = await buildApp({ checkDatabase: healthyDatabase, useCases: stubUseCases() });
     });
 
     it('devuelve el x-correlation-id recibido', async () => {
@@ -148,7 +149,7 @@ describe('aplicación HTTP', () => {
   });
 
   it('publica el OpenAPI con la ruta /health', async () => {
-    app = await buildApp({ checkDatabase: healthyDatabase });
+    app = await buildApp({ checkDatabase: healthyDatabase, useCases: stubUseCases() });
 
     const response = await app.inject({ method: 'GET', url: '/docs/json' });
 

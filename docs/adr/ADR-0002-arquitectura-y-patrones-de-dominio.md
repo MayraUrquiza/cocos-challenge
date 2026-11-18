@@ -5,7 +5,7 @@
 | **Estado** | PROPUESTO |
 | **Autores** | Mayra Urquiza |
 | **Decisores** | Mayra Urquiza |
-| **Última actualización** | 17 nov 2026 |
+| **Última actualización** | 18 nov 2026 |
 | **Relacionado** | [RFC-001](../rfc/RFC-001-api-portfolio-busqueda-ordenes.md) · [ADR-0001](ADR-0001-stack-http-validacion-y-acceso-a-datos.md) · [ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md) · [ADR-0004](ADR-0004-reglas-de-negocio.md) · [ADR-0005](ADR-0005-contrato-de-la-api.md) |
 
 ## Contexto
@@ -31,7 +31,7 @@ El servicio mueve dinero: valida fondos y tenencias, registra órdenes y calcula
 | | Comandos | Queries |
 |---|---|---|
 | Casos de uso | `PlaceOrder`, `CancelOrder`, `TransferCash`, `FillOrder` | `GetPortfolio`, `SearchInstruments`, `GetOrder`, `ListOrders` |
-| Puertos de salida | `AccountRepository`, `PriceProvider` | `PortfolioReadModel`, `InstrumentSearch`, `OrderReadModel` |
+| Puertos de salida | `AccountRepository`, `PriceProvider` | `PortfolioFinder`, `InstrumentFinder`, `OrderFinder` |
 | Modelo | Agregado Cuenta y su decider | Vistas con SQL a medida, el portfolio pasa por una proyección pura |
 | Base de datos | La misma PostgreSQL | La misma PostgreSQL |
 
