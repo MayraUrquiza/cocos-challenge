@@ -1,6 +1,10 @@
+import { GetOrderHandler } from './application/use-cases/queries/get-order';
+import { ListOrdersHandler } from './application/use-cases/queries/list-orders';
 import { SearchInstrumentsHandler } from './application/use-cases/queries/search-instruments';
 import { buildApp, type App } from './infrastructure/adapters/inbound/http/app';
 import { PostgresInstrumentFinder } from './infrastructure/adapters/outbound/postgres/finders/postgres-instrument-finder';
+import { PostgresOrderFinder } from './infrastructure/adapters/outbound/postgres/finders/postgres-order-finder';
+import { PostgresUserFinder } from './infrastructure/adapters/outbound/postgres/finders/postgres-user-finder';
 import { ConfigError, loadConfig } from './infrastructure/config/config';
 import { loadDotEnv } from './infrastructure/config/dotenv';
 import { checkDatabase, createDatabase } from './infrastructure/database/connection';
@@ -17,12 +21,16 @@ async function main(): Promise<void> {
   });
 
   const instrumentFinder = new PostgresInstrumentFinder(db);
+  const userFinder = new PostgresUserFinder(db);
+  const orderFinder = new PostgresOrderFinder(db);
 
   app = await buildApp(
     {
       checkDatabase: () => checkDatabase(db),
       useCases: {
         searchInstruments: new SearchInstrumentsHandler(instrumentFinder),
+        getOrder: new GetOrderHandler(userFinder, orderFinder),
+        listOrders: new ListOrdersHandler(userFinder, orderFinder),
       },
     },
     { logger: loggerOptions(config.logLevel) },

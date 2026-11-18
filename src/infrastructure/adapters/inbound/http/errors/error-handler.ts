@@ -1,7 +1,16 @@
 import { STATUS_CODES } from 'node:http';
 import type { FastifyError, FastifyInstance, FastifyReply } from 'fastify';
+import {
+  ApplicationError,
+  type ApplicationErrorCode,
+} from '../../../../../application/shared/errors';
 import type { ErrorCode, ErrorDetail, ErrorResponse } from './error-response';
 import { formatValidationErrors } from './validation-error-formatter';
+
+const STATUS_BY_APPLICATION_CODE: Record<ApplicationErrorCode, number> = {
+  USER_NOT_FOUND: 404,
+  ORDER_NOT_FOUND: 404,
+};
 
 const CODE_BY_STATUS: Partial<Record<number, ErrorCode>> = {
   400: 'VALIDATION_ERROR',
@@ -16,7 +25,11 @@ const CODE_BY_STATUS: Partial<Record<number, ErrorCode>> = {
  * Un 500 nunca expone detalles internos: van al log con el correlationId.
  */
 export function registerErrorHandling(app: FastifyInstance): void {
-  app.setErrorHandler((error: FastifyError, request, reply) => {
+  app.setErrorHandler((error: FastifyError | ApplicationError, request, reply) => {
+    if (error instanceof ApplicationError) {
+      return sendError(reply, STATUS_BY_APPLICATION_CODE[error.code], error.code, error.message);
+    }
+
     if (error.validation) {
       return sendError(reply, 400, 'VALIDATION_ERROR', 'El request no es válido', {
         details: formatValidationErrors(error.validation, error.validationContext),
