@@ -5,7 +5,7 @@
 | **Estado** | PROPUESTO |
 | **Autores** | Mayra Urquiza |
 | **Decisores** | Mayra Urquiza |
-| **Última actualización** | 17 nov 2026 |
+| **Última actualización** | 18 nov 2026 |
 | **Relacionado** | [RFC-001](../rfc/RFC-001-api-portfolio-busqueda-ordenes.md) · [ADR-0002](ADR-0002-arquitectura-y-patrones-de-dominio.md) · [ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md) · [ADR-0005](ADR-0005-contrato-de-la-api.md) |
 
 ## Contexto
@@ -31,7 +31,9 @@ El [enunciado](../../backend-challenge.md) define las reglas principales, pero d
   - Una compra recalcula el promedio con `avg_nuevo = (qty_anterior × avg_anterior + size × price) / (qty_anterior + size)`, y la cantidad pasa a `qty_anterior + size`.
   - Una venta reduce la cantidad sin cambiar el promedio, porque no cambia lo que costaron las acciones que quedan.
   - Si la cantidad llega a 0, el promedio se reinicia.
+  - Una compra sobre una cantidad en 0 o negativa arranca un promedio nuevo con su precio. Una cantidad negativa son acciones vendidas de más que el usuario debe, por lo que la compra primero las cubre y lo que sobra son acciones nuevas compradas a ese precio. Aplicar la fórmula con una cantidad negativa daría un promedio sin sentido o una división por 0.
 - Ejemplo: con 10 acciones a un promedio de 100, una compra de 10 a 200 deja 20 acciones a `(10 × 100 + 10 × 200) / 20 = 150`. Si después vende 5, quedan 15 a 150.
+- Ejemplo con tenencia negativa: con −10 BMA, una compra de 15 a 1.500 deja 5 acciones a 1.500. Con la fórmula daría `(−10 × 1.540 + 15 × 1.500) / 5 = 1.420`, menos de lo que el usuario pagó realmente.
 - **Ganancia** = `qty × último close − qty × avg`. **Rendimiento total** = `ganancia / (qty × avg) × 100`.
 - Mide **solo lo no realizado**, es decir, las acciones que el usuario todavía tiene. Lo ganado o perdido en ventas anteriores no se incluye.
 - Con tenencia negativa, costo promedio, ganancia y rendimiento quedan en `null`.
@@ -99,6 +101,7 @@ El [enunciado](../../backend-challenge.md) define las reglas principales, pero d
 ### Cómo se verifica
 
 - El portfolio del usuario 1 da 753.000 pesos, 125.500 reservados, 627.500 disponibles y 889.756 de valor total, con `NEGATIVE_QUANTITY` en BMA.
+- Una compra sobre una tenencia negativa deja como costo promedio el precio de esa compra.
 - Una compra que supera lo disponible, aunque no supere los pesos totales, queda `REJECTED`.
 - Al ejecutar en simulación una compra `LIMIT`, los reservados bajan, los pesos bajan por el mismo monto y la tenencia sube.
 - La búsqueda "rio" encuentra "Molinos Río de la Plata", y "%" no devuelve todos los instrumentos.
@@ -109,6 +112,7 @@ El [enunciado](../../backend-challenge.md) define las reglas principales, pero d
 |---|---|---|
 | Órdenes `LIMIT` pendientes | **Reservar recursos** | No reservar: permite comprometer varias veces el mismo dinero. |
 | Base del rendimiento | **Costo promedio ponderado** | FIFO por lotes (más complejo de calcular y no es lo que piden las fuentes). Solo retorno diario (no dice cuánto se ganó con la posición). |
+| Compra sobre tenencia negativa | **Promedio nuevo con el precio de la compra** | Aplicar la fórmula igual (divide por 0 si la compra cubre justo lo vendido de más, y si no da un costo menor que el precio pagado). Promedio en `null` hasta que se recompre todo (oculta el costo de acciones que el usuario sí tiene). |
 | Anomalías | **Mostrar con aviso** | Mostrar sin aviso (el cliente no puede advertir al usuario). Ocultar (infla el valor de la cuenta). Corregir (reescribe un ledger inmutable). |
 | Precios viejos | **Usar el último cargado** | Rechazar órdenes con precios de más de N días: con los datos del challenge, ninguna `MARKET` podría ejecutarse. |
 | Transferencias | **Registrarlas por API** | Asumirlas cargadas por otro sistema: solo el usuario 1 podría operar. |
