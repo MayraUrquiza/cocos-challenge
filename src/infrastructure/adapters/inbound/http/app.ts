@@ -6,9 +6,11 @@ import { registerErrorHandling } from './errors/error-handler';
 import { ErrorResponseSchema } from './errors/error-response';
 import { genCorrelationId, registerRequestLogging } from './request-logging';
 import { healthRoutes } from './routes/health';
+import { v1Routes, type UseCases } from './routes/v1';
 
 export interface AppDependencies {
   checkDatabase: () => Promise<void>;
+  useCases: UseCases;
 }
 
 export interface BuildAppOptions {
@@ -54,6 +56,7 @@ export async function buildApp(deps: AppDependencies, options: BuildAppOptions =
   await app.register(swaggerUi, { routePrefix: '/docs' });
 
   await app.register(healthRoutes, { checkDatabase: deps.checkDatabase });
+  await app.register(v1Routes, { prefix: '/v1', useCases: deps.useCases });
 
   return app;
 }
