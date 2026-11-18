@@ -1,5 +1,6 @@
 import { buildApp, type App } from './infrastructure/adapters/inbound/http/app';
 import { ConfigError, loadConfig } from './infrastructure/config/config';
+import { loadDotEnv } from './infrastructure/config/dotenv';
 import { checkDatabase, createDatabase } from './infrastructure/database/connection';
 import { loggerOptions } from './infrastructure/logging/logger';
 
@@ -36,14 +37,6 @@ async function main(): Promise<void> {
   }
 
   await server.listen({ port: config.port, host: config.host });
-}
-
-function loadDotEnv(): void {
-  try {
-    process.loadEnvFile();
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
-  }
 }
 
 main().catch((err: unknown) => {

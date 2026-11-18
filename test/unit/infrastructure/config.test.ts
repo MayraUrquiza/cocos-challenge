@@ -1,4 +1,8 @@
-import { ConfigError, loadConfig } from '../../../src/infrastructure/config/config';
+import {
+  ConfigError,
+  loadConfig,
+  loadMigrationConfig,
+} from '../../../src/infrastructure/config/config';
 
 const DATABASE_URL = 'postgres://cocos_app:cocos_app@localhost:5432/cocos';
 
@@ -47,5 +51,25 @@ describe('loadConfig', () => {
 
   it('la simulación de mercado está apagada por defecto', () => {
     expect(loadConfig({ DATABASE_URL }).marketSimulationEnabled).toBe(false);
+  });
+});
+
+describe('loadMigrationConfig', () => {
+  const MIGRATION_DATABASE_URL = 'postgres://cocos_migrator:cocos_migrator@localhost:5432/cocos';
+
+  it('lee la URL del usuario de migraciones', () => {
+    expect(loadMigrationConfig({ MIGRATION_DATABASE_URL })).toEqual({
+      migrationDatabaseUrl: MIGRATION_DATABASE_URL,
+    });
+  });
+
+  it('no exige las variables de la API', () => {
+    expect(() => loadMigrationConfig({ MIGRATION_DATABASE_URL })).not.toThrow();
+  });
+
+  it('falla si falta MIGRATION_DATABASE_URL y lo nombra', () => {
+    expect(() => loadMigrationConfig({ DATABASE_URL })).toThrow(
+      'MIGRATION_DATABASE_URL es obligatoria',
+    );
   });
 });

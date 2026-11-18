@@ -33,6 +33,12 @@ jobs:
       - name: Dependencias entre capas
         run: npm run lint:deps
 
+      - name: Migraciones
+        run: npm run db:migrate
+
+      - name: schema.ts sincronizado con las migraciones
+        run: npm run db:codegen:check
+
       - name: Tests de unidad
         run: npm run test:unit
 

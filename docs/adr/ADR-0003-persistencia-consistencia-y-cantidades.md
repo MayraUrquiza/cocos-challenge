@@ -5,7 +5,7 @@
 | **Estado** | PROPUESTO |
 | **Autores** | Mayra Urquiza |
 | **Decisores** | Mayra Urquiza |
-| **Última actualización** | 17 nov 2026 |
+| **Última actualización** | 18 nov 2026 |
 | **Relacionado** | [RFC-001](../rfc/RFC-001-api-portfolio-busqueda-ordenes.md) · [ADR-0001](ADR-0001-stack-http-validacion-y-acceso-a-datos.md) · [ADR-0002](ADR-0002-arquitectura-y-patrones-de-dominio.md) · [ADR-0004](ADR-0004-reglas-de-negocio.md) · [ADR-0005](ADR-0005-contrato-de-la-api.md) |
 
 ## Contexto
@@ -86,12 +86,13 @@ Si algo se saltea el bloqueo, hay tres barreras más en la base: `UNIQUE (accoun
 
 **Por qué:** el esquema provisto es la referencia del challenge. Se puede cambiar si se justifica, siempre que no rompa los datos ni las consultas existentes.
 
-Todos los cambios son **aditivos o ampliaciones compatibles**, y las 11 órdenes semilla cumplen todas las restricciones nuevas. Como el resto del esquema, las columnas nuevas se crean sin comillas (PostgreSQL las guarda en minúsculas).
+Todos los cambios son **aditivos o cambios de tipo compatibles**, y las 11 órdenes semilla cumplen todas las restricciones nuevas. Como el resto del esquema, las columnas nuevas se crean sin comillas (PostgreSQL las guarda en minúsculas).
 
 | Cambio | Motivo |
 |---|---|
 | Tabla `account_events`, con sus triggers y permisos | Historial contable (punto 2). |
 | `orders.size` a `NUMERIC(18,2)`, con `CHECK` de acciones enteras | Transferencias con centavos (punto 5). |
+| `orders.datetime` de `TIMESTAMP` a `TIMESTAMPTZ` | Una fecha sin zona se interpreta en la hora local de quien la lee o la escribe. Con zona, cada valor es un instante absoluto y se lee igual en cualquier servidor. |
 | `orders.rejectReason VARCHAR(30) NULL`, con `CHECK` de valores permitidos y solo en órdenes `REJECTED` | Motivo de cada rechazo. La orden semilla rechazada queda con `NULL`. |
 | `orders.idempotencyKey VARCHAR(64) NULL` y `orders.requestHash CHAR(64) NULL`, con índice único `(userId, idempotencyKey)` | Pedidos repetidos (punto 3). |
 | `CHECK` de valores permitidos en `side`, `type` y `status` | Impedir valores inválidos. |
@@ -101,7 +102,7 @@ Todos los cambios son **aditivos o ampliaciones compatibles**, y las 11 órdenes
 | Índice único `instruments (ticker)` | El ticker identifica al instrumento. |
 | Extensión `unaccent` | Búsqueda que ignora tildes ([ADR-0004](ADR-0004-reglas-de-negocio.md)). |
 
-`orders.datetime` (`TIMESTAMP` sin zona) se guarda siempre en UTC.
+Al convertir `orders.datetime`, los valores existentes se interpretan como UTC (`USING datetime AT TIME ZONE 'UTC'`), así que cada orden semilla conserva el mismo instante. No se depende de la zona horaria de la sesión que ejecuta la migración.
 
 ### 7. Evolución prevista
 
@@ -123,6 +124,7 @@ Todos los cambios son **aditivos o ampliaciones compatibles**, y las 11 órdenes
 - `UPDATE`, `DELETE` y `TRUNCATE` sobre `account_events` fallan.
 - La reconciliación entre `orders` y `account_events` da 0 diferencias.
 - Una orden de acciones con `size` fraccionario insertada directo en la base es rechazada por el `CHECK`.
+- Las órdenes semilla conservan su instante al pasar a `TIMESTAMPTZ`, y una fecha se escribe y se lee igual aunque el proceso corra en una zona horaria distinta de UTC.
 
 ## Opciones evaluadas
 
@@ -165,12 +167,20 @@ Todos los cambios son **aditivos o ampliaciones compatibles**, y las 11 órdenes
 | Ledger de movimientos separado | ❌ Por ahora | Es el modelo correcto cuando una operación tiene varios efectos en pesos, pero hoy ningún caso lo requiere. |
 | Escala en `instruments.quantity_scale` | ❌ Por ahora | Hoy coincide 1 a 1 con el tipo de instrumento y podría contradecirlo. |
 
+### Fechas de las órdenes
+
+| Opción | Veredicto | Motivo |
+|---|---|---|
+| **`TIMESTAMPTZ`** | ✅ Elegida | Cada valor es un instante absoluto. El driver lo lee y lo escribe bien sin configuración, en cualquier zona horaria. |
+| `TIMESTAMP` en UTC, con el driver configurado para leer y escribir en UTC | ❌ Descartada | La configuración de escritura de `pg` es global al proceso, y la garantía depende de que cada cliente que use la base la repita. |
+| `TIMESTAMP` en UTC, escribiendo siempre strings ISO | ❌ Descartada | Depende de que nadie pase nunca un `Date`. Un descuido corre la fecha según la zona del servidor. |
+
 ### Esquema y evolución
 
 | Opción | Veredicto | Motivo |
 |---|---|---|
-| **Cambios aditivos o ampliaciones compatibles** | ✅ Elegida | Permite corregir `size` sin romper datos ni consultas. |
-| Solo cambios aditivos | ❌ Descartada | Impediría corregir `size` salvo con soluciones que dejan deuda. |
+| **Cambios aditivos o cambios de tipo compatibles** | ✅ Elegida | Permite corregir `size` y `datetime` sin romper datos ni consultas. |
+| Solo cambios aditivos | ❌ Descartada | Impediría corregir `size` y `datetime` salvo con soluciones que dejan deuda. |
 | Rediseño del esquema | ❌ Descartada | Rompe la referencia del challenge sin beneficio funcional. |
 | Saldos precalculados en una vista materializada | ❌ Descartada | Se recalcula entera y cada cierto tiempo: el disponible podría quedar desactualizado. Por eso la evolución prevista es una tabla actualizada en la misma transacción. |
 
@@ -187,6 +197,6 @@ Todos los cambios son **aditivos o ampliaciones compatibles**, y las 11 órdenes
 - **Dos escrituras por pedido** (`orders` y `account_events`) que tienen que coincidir. Se mitiga con un único punto de escritura y con la reconciliación como test y métrica.
 - **Los pedidos de un mismo usuario no corren en paralelo.** Se monitorea el tiempo de espera del bloqueo.
 - **Cada pedido recalcula los saldos leyendo todas las órdenes del usuario,** con la cuenta bloqueada. El costo crece con el historial, y la tabla de saldos (punto 7) lo resuelve cuando haga falta.
-- **Ampliar `size` reescribe la tabla con un bloqueo exclusivo.** Con los datos del challenge es instantáneo, pero con volumen habría que planificarlo.
+- **Ampliar `size` y pasar `datetime` a `TIMESTAMPTZ` reescriben la tabla con un bloqueo exclusivo.** Con los datos del challenge es instantáneo, pero con volumen habría que planificarlo.
 - **Dos columnas de idempotencia** que no son datos del negocio, con claves que no vencen.
 - **El `CHECK` de acciones enteras depende del side, no del instrumento.** Vale mientras solo `ARS` admita decimales.
