@@ -1,6 +1,8 @@
 import { Type, type Static } from 'typebox';
+import type { ApplicationErrorCode } from '../../../../../application/shared/errors';
 
 export type ErrorCode =
+  | ApplicationErrorCode
   | 'VALIDATION_ERROR'
   | 'NOT_FOUND'
   | 'METHOD_NOT_ALLOWED'
