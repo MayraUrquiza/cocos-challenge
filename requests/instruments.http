@@ -1,0 +1,16 @@
+@baseUrl = http://localhost:3000
+
+### Buscar por ticker: el ticker exacto sale primero
+GET {{baseUrl}}/v1/instruments?q=moli
+
+### Buscar por nombre, sin tildes: encuentra "Molinos Río de la Plata"
+GET {{baseUrl}}/v1/instruments?q=rio
+
+### Paginación: 5 resultados a partir del sexto
+GET {{baseUrl}}/v1/instruments?q=a&limit=5&offset=5
+
+### Instrumento sin precios cargados: lastPrice y dailyReturnPct en null
+GET {{baseUrl}}/v1/instruments?q=pgr
+
+### Request inválido: limit fuera de rango (400 VALIDATION_ERROR)
+GET {{baseUrl}}/v1/instruments?q=a&limit=101
