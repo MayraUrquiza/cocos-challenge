@@ -1,0 +1,19 @@
+@baseUrl = http://localhost:3000
+
+### Órdenes del usuario 1, de la más nueva a la más vieja (incluye transferencias)
+GET {{baseUrl}}/v1/users/1/orders
+
+### Paginación: 3 órdenes a partir de la cuarta
+GET {{baseUrl}}/v1/users/1/orders?limit=3&offset=3
+
+### Detalle de una orden rechazada
+GET {{baseUrl}}/v1/users/1/orders/6
+
+### Detalle de una transferencia: el monto viaja con centavos
+GET {{baseUrl}}/v1/users/1/orders/1
+
+### Orden de otro usuario: 404 ORDER_NOT_FOUND, sin revelar que existe
+GET {{baseUrl}}/v1/users/2/orders/1
+
+### Usuario inexistente: 404 USER_NOT_FOUND
+GET {{baseUrl}}/v1/users/999/orders
