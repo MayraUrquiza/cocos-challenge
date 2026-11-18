@@ -9,9 +9,36 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
 
+export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>;
+
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
 export type Numeric = ColumnType<string, number | string, number | string>;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface AccountEvents {
+  account_id: number;
+  event_id: Generated<string>;
+  event_type: string;
+  event_version: number;
+  id: Generated<Int8>;
+  metadata: Generated<Json>;
+  occurred_at: Timestamp;
+  order_id: number;
+  payload: Json;
+  sequence: number;
+}
 
 export interface Instruments {
   id: Generated<number>;
@@ -53,6 +80,7 @@ export interface Users {
 }
 
 export interface DB {
+  account_events: AccountEvents;
   instruments: Instruments;
   marketdata: Marketdata;
   orders: Orders;

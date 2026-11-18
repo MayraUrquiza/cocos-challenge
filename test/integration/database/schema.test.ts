@@ -7,7 +7,10 @@ import {
   migrateToEmpty,
   migrateToLatest,
 } from '../../../src/infrastructure/database/migrator';
+import { migrations } from '../../../src/infrastructure/database/migrations';
 import type { DB, Orders } from '../../../src/infrastructure/database/schema';
+
+const MIGRATION_COUNT = Object.keys(migrations).length;
 import { createTestDatabase, type TestDatabase } from '../../support/database';
 
 const PAMP = 47;
@@ -304,7 +307,9 @@ describe('migraciones desde cero', () => {
     const first = await migrateToLatest(migrator);
     const second = await migrateToLatest(migrator);
 
-    expect(first.map((result) => result.status)).toEqual(['Success', 'Success', 'Success', 'Success']);
+    expect(first.map((result) => result.status)).toEqual(
+      Array(MIGRATION_COUNT).fill('Success'),
+    );
     expect(second).toEqual([]);
     expect(await columnType('size')).toBe('numeric');
     expect(await columnType('datetime')).toBe('timestamp with time zone');
@@ -316,11 +321,11 @@ describe('migraciones desde cero', () => {
 
   it('se pueden revertir y volver a aplicar', async () => {
     const reverted = await migrateToEmpty(migrator);
-    expect(reverted).toHaveLength(4);
+    expect(reverted).toHaveLength(MIGRATION_COUNT);
     expect(await columnType('size')).toBe('integer');
     expect(await columnType('datetime')).toBe('timestamp without time zone');
     expect(await firstOrderUtc()).toBe('2023-07-12 12:11:20');
 
-    await expect(migrateToLatest(migrator)).resolves.toHaveLength(4);
+    await expect(migrateToLatest(migrator)).resolves.toHaveLength(MIGRATION_COUNT);
   });
 });

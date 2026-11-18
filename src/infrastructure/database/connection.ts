@@ -25,6 +25,7 @@ export function createDatabase<DB = Database>(
     max: 10,
     connectionTimeoutMillis: 2_000,
     types: typeParsers,
+    enableChannelBinding: true,
   });
   // Si la base corta una conexión inactiva (reinicio, failover), pg emite 'error'
   // en el pool. Sin este listener, Node termina el proceso. El pool descarta esa
