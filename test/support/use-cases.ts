@@ -13,6 +13,8 @@ function notStubbed(name: string) {
 export function stubUseCases(overrides: Partial<UseCases> = {}): UseCases {
   return {
     searchInstruments: notStubbed('searchInstruments'),
+    getOrder: notStubbed('getOrder'),
+    listOrders: notStubbed('listOrders'),
     ...overrides,
   };
 }
