@@ -1,5 +1,6 @@
 import { sql, type Kysely } from 'kysely';
 import { buildApp, type App } from '../../src/infrastructure/adapters/inbound/http/app';
+import { stubUseCases } from '../support/use-cases';
 import { checkDatabase, createDatabase } from '../../src/infrastructure/database/connection';
 import type { DB } from '../../src/infrastructure/database/schema';
 import { testDatabaseUrl } from '../support/env';
@@ -23,7 +24,7 @@ describe('GET /health contra PostgreSQL', () => {
 
   it('responde 200 con la base levantada, conectando con el usuario de la aplicación', async () => {
     db = createDatabase(testDatabaseUrl());
-    app = await buildApp({ checkDatabase: () => checkDatabase(db) });
+    app = await buildApp({ checkDatabase: () => checkDatabase(db), useCases: stubUseCases() });
 
     const response = await app.inject({ method: 'GET', url: '/health' });
 
@@ -34,7 +35,7 @@ describe('GET /health contra PostgreSQL', () => {
   it('sobrevive a que la base corte una conexión inactiva y se recupera', async () => {
     const idleErrors: Error[] = [];
     db = createDatabase(testDatabaseUrl(), (err) => idleErrors.push(err));
-    app = await buildApp({ checkDatabase: () => checkDatabase(db) });
+    app = await buildApp({ checkDatabase: () => checkDatabase(db), useCases: stubUseCases() });
     await app.inject({ method: 'GET', url: '/health' });
 
     // Otra conexión del mismo usuario corta las del pool, como en un reinicio de la base.
@@ -54,7 +55,7 @@ describe('GET /health contra PostgreSQL', () => {
 
   it('responde 503 si la base no es alcanzable', async () => {
     db = createDatabase('postgres://cocos_app:cocos_app@127.0.0.1:1/cocos');
-    app = await buildApp({ checkDatabase: () => checkDatabase(db) });
+    app = await buildApp({ checkDatabase: () => checkDatabase(db), useCases: stubUseCases() });
 
     const response = await app.inject({ method: 'GET', url: '/health' });
 
