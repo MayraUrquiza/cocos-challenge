@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://cocos_app:cocos_app@localhost:5432/cocos
+      MIGRATION_DATABASE_URL: postgres://cocos_migrator:cocos_migrator@localhost:5432/cocos
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Misma base que en desarrollo: docker-compose crea los usuarios y carga database.sql.
+      - name: Levantar PostgreSQL
+        run: docker compose up -d --wait
+
+      - run: npm ci
+
+      - name: Tipos
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Dependencias entre capas
+        run: npm run lint:deps
+
+      - name: Tests de unidad
+        run: npm run test:unit
+
+      - name: Tests de integración
+        run: npm run test:int
+
+      - name: Logs de PostgreSQL si algo falló
+        if: failure()
+        run: docker compose logs postgres

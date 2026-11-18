@@ -1,0 +1,7 @@
+### Estado del servicio y de la base de datos
+# 200 {"status":"ok"} o 503 {"status":"unavailable"}
+GET http://localhost:3000/health
+x-correlation-id: prueba-health-1
+
+### Documentación OpenAPI (en el navegador: http://localhost:3000/docs)
+GET http://localhost:3000/docs/json
