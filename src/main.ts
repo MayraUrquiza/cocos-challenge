@@ -1,4 +1,6 @@
+import { SearchInstrumentsHandler } from './application/use-cases/queries/search-instruments';
 import { buildApp, type App } from './infrastructure/adapters/inbound/http/app';
+import { PostgresInstrumentFinder } from './infrastructure/adapters/outbound/postgres/finders/postgres-instrument-finder';
 import { ConfigError, loadConfig } from './infrastructure/config/config';
 import { loadDotEnv } from './infrastructure/config/dotenv';
 import { checkDatabase, createDatabase } from './infrastructure/database/connection';
@@ -14,8 +16,15 @@ async function main(): Promise<void> {
     app?.log.warn({ err }, 'la base cerró una conexión inactiva');
   });
 
+  const instrumentFinder = new PostgresInstrumentFinder(db);
+
   app = await buildApp(
-    { checkDatabase: () => checkDatabase(db) },
+    {
+      checkDatabase: () => checkDatabase(db),
+      useCases: {
+        searchInstruments: new SearchInstrumentsHandler(instrumentFinder),
+      },
+    },
     { logger: loggerOptions(config.logLevel) },
   );
   app.addHook('onClose', async () => {
