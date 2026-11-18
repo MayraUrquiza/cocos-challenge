@@ -1,6 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 import { buildApp, type App } from '../../src/infrastructure/adapters/inbound/http/app';
 import { checkDatabase, createDatabase } from '../../src/infrastructure/database/connection';
+import type { DB } from '../../src/infrastructure/database/schema';
 import { testDatabaseUrl } from '../support/env';
 
 async function waitFor(condition: () => boolean, timeoutMs = 2_000): Promise<void> {
@@ -12,7 +13,7 @@ async function waitFor(condition: () => boolean, timeoutMs = 2_000): Promise<voi
 }
 
 describe('GET /health contra PostgreSQL', () => {
-  let db: Kysely<Record<string, never>>;
+  let db: Kysely<DB>;
   let app: App;
 
   afterEach(async () => {
