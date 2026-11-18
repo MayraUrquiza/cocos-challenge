@@ -20,8 +20,8 @@
     "db:down": "docker compose down",
     "db:reset": "docker compose down -v && docker compose up -d --wait && npm run db:migrate",
     "db:migrate": "tsx src/infrastructure/database/migrate.ts",
-    "db:codegen": "kysely-codegen --dialect postgres --url env(MIGRATION_DATABASE_URL) --exclude-pattern kysely_* --date-parser string --out-file src/infrastructure/database/schema.ts",
-    "db:codegen:check": "kysely-codegen --dialect postgres --url env(MIGRATION_DATABASE_URL) --exclude-pattern kysely_* --date-parser string --out-file src/infrastructure/database/schema.ts --verify"
+    "db:codegen": "kysely-codegen --dialect postgres --url \"env(MIGRATION_DATABASE_URL)\" --exclude-pattern \"kysely_*\" --date-parser string --out-file src/infrastructure/database/schema.ts",
+    "db:codegen:check": "npm run db:codegen -- --verify"
   },
   "dependencies": {
     "@fastify/swagger": "^9.9.5",
