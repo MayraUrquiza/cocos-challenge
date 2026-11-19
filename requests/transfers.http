@@ -1,0 +1,28 @@
+@baseUrl = http://localhost:3000
+
+### Ingreso de pesos al usuario 2 (con centavos)
+POST {{baseUrl}}/v1/users/2/transfers
+Content-Type: application/json
+
+{ "type": "CASH_IN", "amount": 200000.50 }
+
+### Retiro de pesos dentro de lo disponible
+POST {{baseUrl}}/v1/users/2/transfers
+Content-Type: application/json
+
+{ "type": "CASH_OUT", "amount": 50000 }
+
+### Retiro que supera lo disponible del usuario 1: 201 con status REJECTED e INSUFFICIENT_FUNDS
+POST {{baseUrl}}/v1/users/1/transfers
+Content-Type: application/json
+
+{ "type": "CASH_OUT", "amount": 700000 }
+
+### Monto con 3 decimales: 400 VALIDATION_ERROR
+POST {{baseUrl}}/v1/users/2/transfers
+Content-Type: application/json
+
+{ "type": "CASH_IN", "amount": 10.005 }
+
+### Portfolio del usuario 2 después de las transferencias
+GET {{baseUrl}}/v1/users/2/portfolio

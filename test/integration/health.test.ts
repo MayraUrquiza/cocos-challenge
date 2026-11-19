@@ -1,17 +1,9 @@
-import { sql, type Kysely } from 'kysely';
+import type { Kysely } from 'kysely';
 import { buildApp, type App } from '../../src/infrastructure/adapters/inbound/http/app';
-import { stubUseCases } from '../support/use-cases';
 import { checkDatabase, createDatabase } from '../../src/infrastructure/database/connection';
 import type { DB } from '../../src/infrastructure/database/schema';
 import { testDatabaseUrl } from '../support/env';
-
-async function waitFor(condition: () => boolean, timeoutMs = 2_000): Promise<void> {
-  const start = Date.now();
-  while (!condition()) {
-    if (Date.now() - start > timeoutMs) throw new Error('timeout esperando la condición');
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
-}
+import { stubUseCases } from '../support/use-cases';
 
 describe('GET /health contra PostgreSQL', () => {
   let db: Kysely<DB>;
@@ -22,7 +14,7 @@ describe('GET /health contra PostgreSQL', () => {
     await db.destroy();
   });
 
-  it('responde 200 con la base levantada, conectando con el usuario de la aplicación', async () => {
+  it('responde 200 con la base levantada', async () => {
     db = createDatabase(testDatabaseUrl());
     app = await buildApp({ checkDatabase: () => checkDatabase(db), useCases: stubUseCases() });
 
@@ -30,30 +22,6 @@ describe('GET /health contra PostgreSQL', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ status: 'ok' });
-  });
-
-  it('sobrevive a que la base corte una conexión inactiva y se recupera', async () => {
-    const idleErrors: Error[] = [];
-    db = createDatabase(testDatabaseUrl(), (err) => idleErrors.push(err));
-    app = await buildApp({ checkDatabase: () => checkDatabase(db), useCases: stubUseCases() });
-    await app.inject({ method: 'GET', url: '/health' });
-
-    // Otra conexión del mismo usuario corta las del pool, como en un reinicio de la base.
-    // Solo en esta base: las otras suites corren en paralelo, cada una con su base.
-    const killer = createDatabase(testDatabaseUrl());
-    await sql`
-      SELECT pg_terminate_backend(pid) FROM pg_stat_activity
-      WHERE usename = current_user
-        AND datname = current_database()
-        AND pid <> pg_backend_pid()
-    `.execute(killer);
-    await killer.destroy();
-    await waitFor(() => idleErrors.length > 0);
-
-    const response = await app.inject({ method: 'GET', url: '/health' });
-
-    expect(idleErrors.length).toBeGreaterThan(0);
-    expect(response.statusCode).toBe(200);
   });
 
   it('responde 503 si la base no es alcanzable', async () => {

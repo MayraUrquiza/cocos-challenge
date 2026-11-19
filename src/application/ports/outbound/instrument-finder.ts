@@ -13,4 +13,5 @@ export interface InstrumentMatch extends Instrument {
  */
 export interface InstrumentFinder {
   search(query: { text: string } & PageRequest): Promise<{ items: InstrumentMatch[]; total: number }>;
+  findByTicker(ticker: string): Promise<Instrument | null>;
 }

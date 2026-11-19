@@ -1,9 +1,11 @@
 import type { OrderDetails } from '../order/order';
 import { SIDE_STRATEGIES } from '../order/side-strategies';
-import type { Money } from '../shared/money';
-import type { Quantity } from '../shared/quantity';
+import { Money } from '../shared/money';
+import { Quantity } from '../shared/quantity';
 import { EMPTY_ACCOUNT, type AccountState } from './account-state';
+import type { AccountCommand, AccountTransferCashCommand, Decision } from './decision';
 import { eventFromSnapshot, type AccountEvent } from './events';
+import { FinancialValidationService } from './financial-validation';
 
 function withShares(state: AccountState, instrumentId: number, delta: Quantity): AccountState {
   if (delta.isZero()) return state;
@@ -65,4 +67,46 @@ export function evolve(state: AccountState, event: AccountEvent): AccountState {
 /** El estado que resulta de aplicar los eventos en orden, desde una cuenta vacía. */
 export function stateFrom(events: readonly AccountEvent[]): AccountState {
   return events.reduce(evolve, EMPTY_ACCOUNT);
+}
+
+/** Las transferencias se guardan como órdenes MARKET sobre `ARS`, a precio 1 (ADR-0004, punto 5). */
+const CASH_PRICE = Money.of(1);
+
+function transferCash(state: AccountState, command: AccountTransferCashCommand): Decision {
+  if (command.amount.isZero() || command.amount.isNegative()) {
+    throw new RangeError(`El monto de una transferencia tiene que ser mayor que 0: ${command.amount.toString()}`);
+  }
+
+  const order: OrderDetails = {
+    orderId: command.orderId,
+    instrumentId: command.cashInstrumentId,
+    side: command.side,
+    type: 'MARKET',
+    size: Quantity.of(command.amount.toString(), 2),
+    price: CASH_PRICE,
+  };
+  const filled = (event: AccountEvent): Decision => ({
+    event,
+    order: { ...order, status: 'FILLED', rejectReason: null },
+  });
+
+  if (command.side === 'CASH_IN') {
+    return filled({ type: 'CashTransferredIn', orderId: order.orderId, amount: command.amount });
+  }
+
+  if (FinancialValidationService.hasAvailableCash(state, command.amount)) {
+    return filled({ type: 'CashTransferredOut', orderId: order.orderId, amount: command.amount });
+  }
+
+  return {
+    event: { type: 'OrderRejected', order, reason: 'INSUFFICIENT_FUNDS' },
+    order: { ...order, status: 'REJECTED', rejectReason: 'INSUFFICIENT_FUNDS' },
+  };
+}
+
+export function decide(state: AccountState, command: AccountCommand): Decision {
+  switch (command.type) {
+    case 'TransferCash':
+      return transferCash(state, command);
+  }
 }

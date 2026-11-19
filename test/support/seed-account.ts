@@ -29,6 +29,7 @@ function snapshot(
     size: Quantity.of(size, instrumentId === ARS ? 2 : 0),
     price: Money.of(price),
     status,
+    rejectReason: null,
   };
 }
 

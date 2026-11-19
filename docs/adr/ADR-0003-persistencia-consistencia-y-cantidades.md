@@ -5,7 +5,7 @@
 | **Estado** | PROPUESTO |
 | **Autores** | Mayra Urquiza |
 | **Decisores** | Mayra Urquiza |
-| **Última actualización** | 18 nov 2026 |
+| **Última actualización** | 19 nov 2026 |
 | **Relacionado** | [RFC-001](../rfc/RFC-001-api-portfolio-busqueda-ordenes.md) · [ADR-0001](ADR-0001-stack-http-validacion-y-acceso-a-datos.md) · [ADR-0002](ADR-0002-arquitectura-y-patrones-de-dominio.md) · [ADR-0004](ADR-0004-reglas-de-negocio.md) · [ADR-0005](ADR-0005-contrato-de-la-api.md) |
 
 ## Contexto
@@ -61,6 +61,9 @@ Cada pedido que modifica una cuenta corre en una transacción con estos pasos:
 1. Bloquea la cuenta con `SELECT … FROM users WHERE id = $1 FOR UPDATE`, sin bloquear a otros usuarios.
 2. Si llegó una `Idempotency-Key` ya usada, devuelve la orden existente y termina.
 3. Carga las órdenes, decide y guarda la orden y su evento, con `sequence = MAX(sequence) + 1`.
+
+- **El bloqueo lo toma la función `lock_account(userId)`.** `FOR UPDATE` exige permiso de `UPDATE` sobre la tabla, y la aplicación no debe poder modificar usuarios. La función hace el `FOR UPDATE` con los permisos de su dueño (`SECURITY DEFINER`), la aplicación solo puede ejecutarla, y devuelve si el usuario existe. El bloqueo dura hasta el fin de la transacción.
+- **El número de la orden se reserva antes de decidir**, con `nextval` sobre la secuencia de `orders`. Así la orden y su evento nacen con el mismo id. Un pedido que falla deja un hueco en la numeración, que no tiene efecto contable.
 
 Si algo se saltea el bloqueo, hay tres barreras más en la base: `UNIQUE (account_id, sequence)` en el historial, el índice único `(userId, idempotencyKey)` en `orders`, y un `UPDATE … WHERE status = 'NEW'` en la cancelación y la ejecución simulada.
 
@@ -147,6 +150,7 @@ Al convertir `orders.datetime`, los valores existentes se interpretan como UTC (
 | Aislamiento `SERIALIZABLE` | ❌ Descartada | Resuelve conflictos abortando transacciones, lo que obliga a reintentar en todos los comandos. |
 | Solo concurrencia optimista | ❌ Descartada | Requiere reintentos en cada comando sin beneficio mientras el estado salga de `orders`. Queda como barrera adicional. |
 | Advisory locks | ⚠️ Viable | Equivalentes en efecto, pero no bloquean una fila real ni validan que el usuario exista. |
+| `FOR UPDATE` directo desde la aplicación | ❌ Descartada | Exige darle a la aplicación permiso de `UPDATE` sobre `users`, aunque sea sobre una columna, y con eso podría modificar usuarios. La función `lock_account` logra el mismo bloqueo sin ese permiso. |
 | Tabla `idempotency_keys` con la respuesta y vencimiento | ⚠️ Viable | Es la solución general cuando la respuesta no es un recurso guardado. Acá la respuesta siempre es una orden ya guardada, así que duplicaría datos. |
 
 ### Datos semilla

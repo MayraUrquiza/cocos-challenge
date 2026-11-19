@@ -5,7 +5,7 @@
 | **Estado** | PROPUESTO |
 | **Autores** | Mayra Urquiza |
 | **Decisores** | Mayra Urquiza |
-| **Última actualización** | 18 nov 2026 |
+| **Última actualización** | 19 nov 2026 |
 | **Relacionado** | [RFC-001](../rfc/RFC-001-api-portfolio-busqueda-ordenes.md) · [ADR-0001](ADR-0001-stack-http-validacion-y-acceso-a-datos.md) · [ADR-0002](ADR-0002-arquitectura-y-patrones-de-dominio.md) · [ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md) · [ADR-0004](ADR-0004-reglas-de-negocio.md) |
 
 ## Contexto
@@ -66,7 +66,7 @@ Podemos suponer que la API la consumirán aplicaciones web y móviles (el reposi
   | Campo | Límite |
   |---|---|
   | `size` | Entero mayor que 0. |
-  | `amount` (órdenes y transferencias) | Mayor que 0, hasta 2 decimales. |
+  | `amount` (órdenes y transferencias) | Mayor que 0, hasta 2 decimales y como máximo 999.999.999.999,99. Por encima de ese orden, un número JSON leído como double deja de representar los centavos con exactitud. |
   | `price` | Mayor que 0, hasta 2 decimales y como máximo 99.999.999,99, lo que entra en la columna. Obligatorio en `LIMIT` y prohibido en `MARKET`. |
   | `size` / `amount` | Exactamente uno de los dos. |
   | `q` (búsqueda) | Mínimo 1 carácter. |

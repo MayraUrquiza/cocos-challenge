@@ -24,7 +24,14 @@ export function eventFromSnapshot(snapshot: OrderSnapshot): AccountEvent | null 
   if (!snapshot.size || !snapshot.price) {
     throw new Error(`La orden ${snapshot.orderId} (${snapshot.status}) no tiene cantidad o precio`);
   }
-  const order: OrderDetails = { ...snapshot, size: snapshot.size, price: snapshot.price };
+  const order: OrderDetails = {
+    orderId: snapshot.orderId,
+    instrumentId: snapshot.instrumentId,
+    side: snapshot.side,
+    type: snapshot.type,
+    size: snapshot.size,
+    price: snapshot.price,
+  };
 
   if (snapshot.status === 'NEW') return { type: 'OrderAccepted', order };
 
