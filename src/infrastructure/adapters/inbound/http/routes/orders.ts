@@ -81,13 +81,14 @@ export const orderRoutes: FastifyPluginAsyncTypebox<OrderRoutesOptions> = async 
         userId,
         instrumentId: body.instrumentId,
         side: body.side,
-        type: body.type,
         quantity:
           body.size !== undefined
             ? { size: Quantity.of(body.size, 0) }
             : { amount: Money.of(body.amount!) },
-        price: body.type === 'LIMIT' ? Money.of(body.price) : null,
         correlationId: request.id,
+        ...(body.type === 'LIMIT'
+          ? { type: 'LIMIT' as const, price: Money.of(body.price) }
+          : { type: 'MARKET' as const }),
       });
 
       request.log.info(

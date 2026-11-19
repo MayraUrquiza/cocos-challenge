@@ -36,7 +36,7 @@ export class PlaceOrderHandler implements PlaceOrder {
           orderType: command.type,
           quantity: command.quantity,
           marketPrice,
-          limitPrice: command.price,
+          limitPrice: command.type === 'LIMIT' ? command.price : null,
         }),
       { occurredAt: this.clock.now(), correlationId: command.correlationId },
     );
