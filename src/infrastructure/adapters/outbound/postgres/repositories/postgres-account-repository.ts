@@ -4,13 +4,17 @@ import type {
   AccountRepository,
   RecordMetadata,
 } from '../../../../../application/ports/outbound/account-repository';
-import { UserNotFoundError } from '../../../../../application/shared/errors';
-import type { OrderView } from '../../../../../application/shared/order-view';
+import {
+  IdempotencyKeyReusedError,
+  UserNotFoundError,
+} from '../../../../../application/shared/errors';
+import type { RecordedOrder } from '../../../../../application/shared/idempotency';
 import { stateFrom } from '../../../../../domain/account/decider';
 import type { Decision } from '../../../../../domain/account/decision';
 import type { DB } from '../../../../database/schema';
-import { selectAccountOrders, toAccountEvents } from '../account-orders';
+import { selectAccountOrders, selectOrderRows, toAccountEvents } from '../account-orders';
 import { toEventRecord } from '../mappers/account-event';
+import { toOrderView } from '../mappers/order';
 
 export class PostgresAccountRepository implements AccountRepository {
   constructor(private readonly db: Kysely<DB>) {}
@@ -19,7 +23,7 @@ export class PostgresAccountRepository implements AccountRepository {
     userId: number,
     decide: (account: AccountContext) => Decision,
     metadata: RecordMetadata,
-  ): Promise<OrderView> {
+  ): Promise<RecordedOrder> {
     return this.db.transaction().execute(async (trx) => {
       // 1. Bloquea la cuenta.
       const { rows: lock } = await sql<{ locked: boolean }>`
@@ -27,23 +31,40 @@ export class PostgresAccountRepository implements AccountRepository {
       `.execute(trx);
       if (!lock[0]?.locked) throw new UserNotFoundError(userId);
 
-      // 2. Arma el estado con la cuenta ya bloqueada.
+      // 2. Si es un reintento, devuelve la orden original. Se revisa con la
+      //    cuenta bloqueada, así dos reintentos simultáneos no crean dos órdenes
+      //    (ADR-0003, punto 3).
+      const { idempotency } = metadata;
+      if (idempotency) {
+        const original = await selectOrderRows(trx, userId)
+          .select('o.requesthash')
+          .where('o.idempotencykey', '=', idempotency.key)
+          .executeTakeFirst();
+        if (original) {
+          if (original.requesthash !== idempotency.requestHash) {
+            throw new IdempotencyKeyReusedError(idempotency.key);
+          }
+          return { order: toOrderView(original), replayed: true };
+        }
+      }
+
+      // 3. Arma el estado con la cuenta ya bloqueada.
       const rows = await selectAccountOrders(trx, userId).execute();
       const state = stateFrom(toAccountEvents(rows));
 
-      // 3. Reserva el número de la orden, así la orden y su evento comparten el id.
+      // 4. Reserva el número de la orden, así la orden y su evento comparten el id.
       const { rows: next } = await sql<{ id: string }>`
         SELECT nextval('orders_id_seq') AS id
       `.execute(trx);
       const nextOrderId = Number(next[0]!.id);
 
-      // 4. Decide.
+      // 5. Decide.
       const { event, order } = decide({ state, nextOrderId });
       if (order.orderId !== nextOrderId) {
         throw new Error(`La orden decidida (${order.orderId}) no usa el número reservado (${nextOrderId})`);
       }
 
-      // 5. Guarda la orden y su evento.
+      // 6. Guarda la orden, con su clave también si se rechazó, y su evento.
       await trx
         .insertInto('orders')
         .values({
@@ -57,6 +78,8 @@ export class PostgresAccountRepository implements AccountRepository {
           status: order.status,
           rejectreason: order.rejectReason,
           datetime: metadata.occurredAt,
+          idempotencykey: idempotency?.key ?? null,
+          requesthash: idempotency?.requestHash ?? null,
         })
         .execute();
 
@@ -82,16 +105,19 @@ export class PostgresAccountRepository implements AccountRepository {
         .execute();
 
       return {
-        id: order.orderId,
-        userId,
-        instrumentId: order.instrumentId,
-        side: order.side,
-        type: order.type,
-        size: order.size,
-        price: order.price,
-        status: order.status,
-        rejectReason: order.rejectReason,
-        datetime: metadata.occurredAt,
+        order: {
+          id: order.orderId,
+          userId,
+          instrumentId: order.instrumentId,
+          side: order.side,
+          type: order.type,
+          size: order.size,
+          price: order.price,
+          status: order.status,
+          rejectReason: order.rejectReason,
+          datetime: metadata.occurredAt,
+        },
+        replayed: false,
       };
     });
   }

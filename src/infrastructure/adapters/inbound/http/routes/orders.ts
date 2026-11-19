@@ -4,6 +4,7 @@ import type { ListOrders } from '../../../../../application/ports/inbound/list-o
 import type { PlaceOrder } from '../../../../../application/ports/inbound/place-order';
 import { Money } from '../../../../../domain/shared/money';
 import { Quantity } from '../../../../../domain/shared/quantity';
+import { IdempotencyHeaders, idempotencyOf } from '../idempotency';
 import { toListOrdersResponse, toOrderResponse } from '../mappers/order-response';
 import {
   ListOrdersQuerystring,
@@ -70,14 +71,15 @@ export const orderRoutes: FastifyPluginAsyncTypebox<OrderRoutesOptions> = async 
           'Se envía `size` (acciones) o `amount` (pesos a invertir), no ambos. ' +
           'Una orden que no cumple una regla de negocio responde 201 con `status: REJECTED` y su `rejectReason`.',
         params: UserParams,
+        headers: IdempotencyHeaders,
         body: PlaceOrderBody,
-        response: { 201: OrderResponse, 400: ErrorResponse, 404: ErrorResponse },
+        response: { 201: OrderResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse },
       },
     },
     async (request, reply) => {
       const { userId } = request.params;
       const body = request.body;
-      const order = await placeOrder.execute({
+      const { order, replayed } = await placeOrder.execute({
         userId,
         instrumentId: body.instrumentId,
         side: body.side,
@@ -86,6 +88,11 @@ export const orderRoutes: FastifyPluginAsyncTypebox<OrderRoutesOptions> = async 
             ? { size: Quantity.of(body.size, 0) }
             : { amount: Money.of(body.amount!) },
         correlationId: request.id,
+        idempotency: idempotencyOf(
+          request.headers['idempotency-key'],
+          `${request.method} ${request.routeOptions.url}`,
+          body,
+        ),
         ...(body.type === 'LIMIT'
           ? { type: 'LIMIT' as const, price: Money.of(body.price) }
           : { type: 'MARKET' as const }),
@@ -100,8 +107,9 @@ export const orderRoutes: FastifyPluginAsyncTypebox<OrderRoutesOptions> = async 
           type: order.type,
           status: order.status,
           rejectReason: order.rejectReason,
+          replayed,
         },
-        'orden registrada',
+        replayed ? 'reintento detectado: se devuelve la orden original' : 'orden registrada',
       );
 
       return reply.code(201).send(toOrderResponse(order));

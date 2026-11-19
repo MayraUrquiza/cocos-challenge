@@ -5,7 +5,7 @@ import type { Clock } from '../../ports/outbound/clock';
 import type { InstrumentFinder } from '../../ports/outbound/instrument-finder';
 import type { PriceProvider } from '../../ports/outbound/price-provider';
 import { InstrumentNotFoundError, InstrumentNotTradableError } from '../../shared/errors';
-import type { OrderView } from '../../shared/order-view';
+import type { RecordedOrder } from '../../shared/idempotency';
 
 export class PlaceOrderHandler implements PlaceOrder {
   constructor(
@@ -15,7 +15,7 @@ export class PlaceOrderHandler implements PlaceOrder {
     private readonly clock: Clock,
   ) {}
 
-  async execute(command: PlaceOrderCommand): Promise<OrderView> {
+  async execute(command: PlaceOrderCommand): Promise<RecordedOrder> {
     const instrument = await this.instrumentsFinder.findById(command.instrumentId);
     if (!instrument) throw new InstrumentNotFoundError(command.instrumentId);
     if (instrument.type === 'MONEDA') throw new InstrumentNotTradableError(instrument.ticker);
@@ -38,7 +38,11 @@ export class PlaceOrderHandler implements PlaceOrder {
           marketPrice,
           limitPrice: command.type === 'LIMIT' ? command.price : null,
         }),
-      { occurredAt: this.clock.now(), correlationId: command.correlationId },
+      {
+        occurredAt: this.clock.now(),
+        correlationId: command.correlationId,
+        idempotency: command.idempotency,
+      },
     );
   }
 }

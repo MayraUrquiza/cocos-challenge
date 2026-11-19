@@ -17,17 +17,19 @@ describe('TransferCashHandler', () => {
     const handler = new TransferCashHandler(accounts, instruments, { now: () => NOW });
 
     // Usuario 1: 627.500 disponibles de 753.000.
-    const rejected = await handler.execute({
+    const { order: rejected } = await handler.execute({
       userId: 1,
       type: 'CASH_OUT',
       amount: Money.of('700000'),
       correlationId: 'req-1',
+      idempotency: null,
     });
-    const filled = await handler.execute({
+    const { order: filled } = await handler.execute({
       userId: 1,
       type: 'CASH_OUT',
       amount: Money.of('627500'),
       correlationId: 'req-2',
+      idempotency: null,
     });
 
     expect(rejected).toMatchObject({ instrumentId: ARS, status: 'REJECTED', rejectReason: 'INSUFFICIENT_FUNDS' });

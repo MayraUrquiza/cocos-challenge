@@ -10,9 +10,10 @@ describe('POST /v1/users/{userId}/transfers: validación', () => {
   let transferCash: jest.MockedFunction<TransferCash['execute']>;
 
   beforeEach(async () => {
-    transferCash = jest.fn().mockResolvedValue(
-      anOrder({ side: 'CASH_IN', instrumentId: 66, size: Quantity.of('0.29', 2), price: Money.of('1') }),
-    );
+    transferCash = jest.fn<ReturnType<TransferCash['execute']>, Parameters<TransferCash['execute']>>().mockResolvedValue({
+      order: anOrder({ side: 'CASH_IN', instrumentId: 66, size: Quantity.of('0.29', 2), price: Money.of('1') }),
+      replayed: false,
+    });
     app = await buildApp({
       checkDatabase: async () => {},
       useCases: stubUseCases({ transferCash: { execute: transferCash } }),
