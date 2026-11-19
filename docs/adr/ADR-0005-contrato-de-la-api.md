@@ -74,7 +74,7 @@ Podemos suponer que la API la consumirán aplicaciones web y móviles (el reposi
 
 - **Listas paginadas** (búsqueda y listado de órdenes): `{ "items": [...], "total": n, "limit": n, "offset": n }`. El listado de órdenes va de la más nueva a la más vieja.
 - **Posiciones del portfolio** ordenadas por ticker. Así la respuesta es estable entre pedidos y el cliente no depende del orden en que se cargaron las órdenes.
-- **Fechas** en ISO 8601 UTC, por ejemplo `"2026-11-17T14:02:11.000Z"`.
+- **Fechas** en ISO 8601 UTC, por ejemplo `"2026-11-17T14:02:11.000Z"`. El `datetime` de una orden es el momento de su último cambio de estado: una LIMIT ejecutada o cancelada muestra cuándo se ejecutó o se canceló ([ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md)).
 
 ### 5. Todo lo que pertenece a una cuenta cuelga del usuario
 

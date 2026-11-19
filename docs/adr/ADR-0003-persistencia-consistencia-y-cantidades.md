@@ -107,6 +107,8 @@ Todos los cambios son **aditivos o cambios de tipo compatibles**, y las 11 órde
 
 Al convertir `orders.datetime`, los valores existentes se interpretan como UTC (`USING datetime AT TIME ZONE 'UTC'`), así que cada orden semilla conserva el mismo instante. No se depende de la zona horaria de la sesión que ejecuta la migración.
 
+`orders.datetime` es el momento del **último cambio de estado** de la orden: su creación, o su ejecución o cancelación si estaba pendiente. Así, recorrer las órdenes por fecha sigue el orden real en que se ejecutaron, que es lo que necesita el costo promedio ([ADR-0004](ADR-0004-reglas-de-negocio.md)). Con la fecha de creación, una LIMIT ejecutada después de otras operaciones del mismo instrumento se promediaría antes de tiempo. La fecha de creación no se pierde: queda en el historial contable, en el evento con que se aceptó la orden. La aplicación solo puede actualizar `status` y `datetime`.
+
 ### 7. Evolución prevista
 
 **Por qué:** el modelo actual alcanza para el volumen y el alcance del challenge, pero tiene límites conocidos. Dejar definido cada paso siguiente, y cuándo darlo, evita adelantarlo sin necesidad.
