@@ -98,4 +98,9 @@ export const PlaceOrderBody = Type.Unsafe<PlaceOrderBody>({
   required: ['type'],
   discriminator: { propertyName: 'type' },
   oneOf: [MarketOrderBody, LimitOrderBody],
+  examples: [
+    { instrumentId: 47, side: 'BUY', type: 'MARKET', amount: 50000 },
+    { instrumentId: 47, side: 'BUY', type: 'LIMIT', size: 10, price: 900 },
+    { instrumentId: 47, side: 'SELL', type: 'MARKET', size: 5 },
+  ],
 });

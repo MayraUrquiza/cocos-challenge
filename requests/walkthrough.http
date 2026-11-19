@@ -1,0 +1,83 @@
+# Recorrido completo con el usuario 3, que arranca sin órdenes. Muestra los casos
+# que dependen de lo que ya pasó en la cuenta: reservas, costo promedio y reintentos.
+# Ejecutar en orden. Los valores esperados son para una base recién creada
+# (npm run db:reset). El paso 6 necesita MARKET_SIMULATION_ENABLED=true en .env.
+@baseUrl = http://localhost:3000
+
+### 1. Buscar el instrumento a comprar: PAMP (id 47), último precio 925,85
+GET {{baseUrl}}/v1/instruments?q=pamp
+
+### 2. Ingresar 100.000 pesos: 201 con FILLED
+POST {{baseUrl}}/v1/users/3/transfers
+Content-Type: application/json
+
+{ "type": "CASH_IN", "amount": 100000 }
+
+### 3. Comprar 10 PAMP con una LIMIT a 900: 201 con NEW, aparta 9.000 pesos
+# @name limitBuy
+POST {{baseUrl}}/v1/users/3/orders
+Content-Type: application/json
+
+{ "instrumentId": 47, "side": "BUY", "type": "LIMIT", "size": 10, "price": 900 }
+
+### 4. Comprar 100 PAMP a 920 (92.000): 201 con REJECTED e INSUFFICIENT_FUNDS
+# Los 100.000 pesos alcanzarían, pero 9.000 están apartados y quedan 91.000 disponibles.
+POST {{baseUrl}}/v1/users/3/orders
+Content-Type: application/json
+
+{ "instrumentId": 47, "side": "BUY", "type": "LIMIT", "size": 100, "price": 920 }
+
+### 5. Portfolio: 100.000 pesos, 9.000 reservados y 91.000 disponibles, todavía sin posiciones
+GET {{baseUrl}}/v1/users/3/portfolio
+
+### 6. El mercado ejecuta la LIMIT del paso 3: 200 con FILLED
+POST {{baseUrl}}/v1/simulation/orders/{{limitBuy.response.body.id}}/fill
+
+### 7. Comprar 5.000 pesos de PAMP a mercado: 5 acciones (5.000 / 925,85), 4.629,25 pesos
+POST {{baseUrl}}/v1/users/3/orders
+Content-Type: application/json
+
+{ "instrumentId": 47, "side": "BUY", "type": "MARKET", "amount": 5000 }
+
+### 8. Portfolio: 86.370,75 pesos y 15 PAMP con costo promedio 908,62 ((9.000 + 4.629,25) / 15)
+GET {{baseUrl}}/v1/users/3/portfolio
+
+### 9. Vender 5 PAMP con una LIMIT a 1.000: 201 con NEW, aparta 5 acciones
+# @name limitSell
+POST {{baseUrl}}/v1/users/3/orders
+Content-Type: application/json
+
+{ "instrumentId": 47, "side": "SELL", "type": "LIMIT", "size": 5, "price": 1000 }
+
+### 10. Vender 12 PAMP a mercado: 201 con REJECTED e INSUFFICIENT_HOLDINGS
+# Tiene 15, pero 5 están apartadas por la venta pendiente y quedan 10 disponibles.
+POST {{baseUrl}}/v1/users/3/orders
+Content-Type: application/json
+
+{ "instrumentId": 47, "side": "SELL", "type": "MARKET", "size": 12 }
+
+### 11. Cancelar la venta pendiente: 200 con CANCELLED, libera las 5 acciones
+POST {{baseUrl}}/v1/users/3/orders/{{limitSell.response.body.id}}/cancel
+
+### 12. Cancelarla otra vez: 409 ORDER_NOT_PENDING
+POST {{baseUrl}}/v1/users/3/orders/{{limitSell.response.body.id}}/cancel
+
+### 13. Vender 4 PAMP a mercado, con Idempotency-Key: 201 con FILLED a 925,85
+POST {{baseUrl}}/v1/users/3/orders
+Content-Type: application/json
+Idempotency-Key: walkthrough-sell-4-pamp
+
+{ "instrumentId": 47, "side": "SELL", "type": "MARKET", "size": 4 }
+
+### 14. Reintentar la misma venta: 201 con la misma orden del paso 13, sin vender de nuevo
+POST {{baseUrl}}/v1/users/3/orders
+Content-Type: application/json
+Idempotency-Key: walkthrough-sell-4-pamp
+
+{ "instrumentId": 47, "side": "SELL", "type": "MARKET", "size": 4 }
+
+### 15. Portfolio: 90.074,15 pesos y 11 PAMP, el costo promedio sigue en 908,62
+GET {{baseUrl}}/v1/users/3/portfolio
+
+### 16. Historial, de la más nueva a la más vieja: incluye los rechazos y la venta cancelada
+GET {{baseUrl}}/v1/users/3/orders

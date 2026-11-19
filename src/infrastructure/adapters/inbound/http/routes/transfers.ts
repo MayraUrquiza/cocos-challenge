@@ -4,13 +4,12 @@ import { Money } from '../../../../../domain/shared/money';
 import { IdempotencyHeaders, idempotencyOf } from '../idempotency';
 import { toOrderResponse } from '../mappers/order-response';
 import { OrderResponse } from '../schemas/orders';
+import { described, errorResponse, ValidationError } from '../schemas/responses';
 import { TransferBody, TransferParams } from '../schemas/transfers';
 
 export interface TransferRoutesOptions {
   transferCash: TransferCash;
 }
-
-const ErrorResponse = { $ref: 'ErrorResponse#' };
 
 export const transferRoutes: FastifyPluginAsyncTypebox<TransferRoutesOptions> = async (
   app,
@@ -28,7 +27,16 @@ export const transferRoutes: FastifyPluginAsyncTypebox<TransferRoutesOptions> = 
         params: TransferParams,
         headers: IdempotencyHeaders,
         body: TransferBody,
-        response: { 201: OrderResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse },
+        response: {
+          201: described(
+            OrderResponse,
+            'Transferencia registrada como orden sobre ARS: `FILLED`, o `REJECTED` con `INSUFFICIENT_FUNDS`. ' +
+              'Un reintento con la misma `Idempotency-Key` devuelve la original.',
+          ),
+          400: ValidationError,
+          404: errorResponse('`USER_NOT_FOUND`: el usuario no existe.'),
+          409: errorResponse('`IDEMPOTENCY_KEY_REUSED`: la clave ya se usó con otro body.'),
+        },
       },
     },
     async (request, reply) => {

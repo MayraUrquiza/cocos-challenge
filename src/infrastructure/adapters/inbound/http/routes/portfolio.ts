@@ -2,12 +2,11 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { GetPortfolio } from '../../../../../application/ports/inbound/get-portfolio';
 import { toPortfolioResponse } from '../mappers/portfolio-response';
 import { PortfolioParams, PortfolioResponse } from '../schemas/portfolio';
+import { described, errorResponse, ValidationError } from '../schemas/responses';
 
 export interface PortfolioRoutesOptions {
   getPortfolio: GetPortfolio;
 }
-
-const ErrorResponse = { $ref: 'ErrorResponse#' };
 
 export const portfolioRoutes: FastifyPluginAsyncTypebox<PortfolioRoutesOptions> = async (
   app,
@@ -23,7 +22,11 @@ export const portfolioRoutes: FastifyPluginAsyncTypebox<PortfolioRoutesOptions> 
           'Valor total, pesos (total, reservados y disponibles) y posiciones con su rendimiento. ' +
           'Revisar `warnings`: una posición puede tener tenencia negativa o no tener precios.',
         params: PortfolioParams,
-        response: { 200: PortfolioResponse, 400: ErrorResponse, 404: ErrorResponse },
+        response: {
+          200: described(PortfolioResponse, 'El portfolio. Un usuario sin órdenes lo tiene vacío, con ceros.'),
+          400: ValidationError,
+          404: errorResponse('`USER_NOT_FOUND`: el usuario no existe.'),
+        },
       },
     },
     async (request) => {

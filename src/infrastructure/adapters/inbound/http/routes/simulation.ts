@@ -3,12 +3,11 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FillOrder } from '../../../../../application/ports/inbound/fill-order';
 import { toOrderResponse } from '../mappers/order-response';
 import { OrderResponse } from '../schemas/orders';
+import { described, errorResponse, ValidationError } from '../schemas/responses';
 
 export interface SimulationRoutesOptions {
   fillOrder: FillOrder;
 }
-
-const ErrorResponse = { $ref: 'ErrorResponse#' };
 
 /**
  * Simulación del mercado, solo para pruebas (ADR-0005, punto 6). Vive bajo
@@ -33,7 +32,12 @@ export const simulationRoutes: FastifyPluginAsyncTypebox<SimulationRoutesOptions
           { orderId: Type.Integer({ minimum: 1, description: 'Número de orden' }) },
           { additionalProperties: false },
         ),
-        response: { 200: OrderResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse },
+        response: {
+          200: described(OrderResponse, 'La orden ejecutada, en `FILLED`.'),
+          400: ValidationError,
+          404: errorResponse('`ORDER_NOT_FOUND`: la orden no existe.'),
+          409: errorResponse('`ORDER_NOT_PENDING`: la orden ya no está `NEW`.'),
+        },
       },
     },
     async (request) => {

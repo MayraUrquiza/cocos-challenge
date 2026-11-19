@@ -13,7 +13,13 @@ export const TransferBody = Type.Object(
     }),
     amount: Amount('Monto en pesos, mayor que 0 y con hasta 2 decimales.'),
   },
-  { additionalProperties: false },
+  {
+    additionalProperties: false,
+    examples: [
+      { type: 'CASH_IN', amount: 200000.5 },
+      { type: 'CASH_OUT', amount: 15000 },
+    ],
+  },
 );
 
 export type TransferBody = Static<typeof TransferBody>;

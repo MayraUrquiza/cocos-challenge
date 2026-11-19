@@ -15,6 +15,7 @@ import {
   UserOrderParams,
   UserParams,
 } from '../schemas/orders';
+import { described, errorResponse, ValidationError } from '../schemas/responses';
 
 export interface OrderRoutesOptions {
   getOrder: GetOrder;
@@ -23,7 +24,7 @@ export interface OrderRoutesOptions {
   cancelOrder: CancelOrder;
 }
 
-const ErrorResponse = { $ref: 'ErrorResponse#' };
+const UserNotFound = errorResponse('`USER_NOT_FOUND`: el usuario no existe.');
 
 export const orderRoutes: FastifyPluginAsyncTypebox<OrderRoutesOptions> = async (
   app,
@@ -40,7 +41,12 @@ export const orderRoutes: FastifyPluginAsyncTypebox<OrderRoutesOptions> = async 
           'Una orden que ya no está pendiente responde 409 ORDER_NOT_PENDING, ' +
           'y una de otro usuario 404 ORDER_NOT_FOUND.',
         params: UserOrderParams,
-        response: { 200: OrderResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse },
+        response: {
+          200: described(OrderResponse, 'La orden cancelada, en `CANCELLED`.'),
+          400: ValidationError,
+          404: errorResponse('`ORDER_NOT_FOUND`: la orden no existe o es de otro usuario.'),
+          409: errorResponse('`ORDER_NOT_PENDING`: la orden ya no está `NEW`.'),
+        },
       },
     },
     async (request) => {
@@ -63,7 +69,11 @@ export const orderRoutes: FastifyPluginAsyncTypebox<OrderRoutesOptions> = async 
           'De la más nueva a la más vieja. Incluye las transferencias de pesos (`CASH_IN` / `CASH_OUT`).',
         params: UserParams,
         querystring: ListOrdersQuerystring,
-        response: { 200: ListOrdersResponse, 400: ErrorResponse, 404: ErrorResponse },
+        response: {
+          200: described(ListOrdersResponse, 'Una página de órdenes, con el total.'),
+          400: ValidationError,
+          404: UserNotFound,
+        },
       },
     },
     async (request) => {
@@ -80,7 +90,13 @@ export const orderRoutes: FastifyPluginAsyncTypebox<OrderRoutesOptions> = async 
         summary: 'Detalle de una orden del usuario',
         description: 'Una orden de otro usuario responde `404 ORDER_NOT_FOUND`.',
         params: UserOrderParams,
-        response: { 200: OrderResponse, 400: ErrorResponse, 404: ErrorResponse },
+        response: {
+          200: described(OrderResponse, 'La orden.'),
+          400: ValidationError,
+          404: errorResponse(
+            '`USER_NOT_FOUND` si el usuario no existe, u `ORDER_NOT_FOUND` si la orden no existe o es de otro usuario.',
+          ),
+        },
       },
     },
     async (request) => toOrderResponse(await getOrder.execute(request.params)),
@@ -99,7 +115,19 @@ export const orderRoutes: FastifyPluginAsyncTypebox<OrderRoutesOptions> = async 
         params: UserParams,
         headers: IdempotencyHeaders,
         body: PlaceOrderBody,
-        response: { 201: OrderResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse },
+        response: {
+          201: described(
+            OrderResponse,
+            'Orden registrada: `FILLED` (MARKET), `NEW` (LIMIT) o `REJECTED` con su `rejectReason`. ' +
+              'Un reintento con la misma `Idempotency-Key` devuelve la orden original.',
+          ),
+          400: errorResponse(
+            'Request inválido (`VALIDATION_ERROR`, con el detalle en `details`), ' +
+              'u orden sobre pesos (`INSTRUMENT_NOT_TRADABLE`).',
+          ),
+          404: errorResponse('`USER_NOT_FOUND` o `INSTRUMENT_NOT_FOUND`.'),
+          409: errorResponse('`IDEMPOTENCY_KEY_REUSED`: la clave ya se usó con otro body.'),
+        },
       },
     },
     async (request, reply) => {
