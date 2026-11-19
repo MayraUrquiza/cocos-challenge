@@ -1,4 +1,5 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import type { CancelOrder } from '../../../../../application/ports/inbound/cancel-order';
 import type { GetOrder } from '../../../../../application/ports/inbound/get-order';
 import type { ListOrders } from '../../../../../application/ports/inbound/list-orders';
 import type { PlaceOrder } from '../../../../../application/ports/inbound/place-order';
@@ -19,14 +20,39 @@ export interface OrderRoutesOptions {
   getOrder: GetOrder;
   listOrders: ListOrders;
   placeOrder: PlaceOrder;
+  cancelOrder: CancelOrder;
 }
 
 const ErrorResponse = { $ref: 'ErrorResponse#' };
 
 export const orderRoutes: FastifyPluginAsyncTypebox<OrderRoutesOptions> = async (
   app,
-  { getOrder, listOrders, placeOrder },
+  { getOrder, listOrders, placeOrder, cancelOrder },
 ) => {
+  app.post(
+    '/users/:userId/orders/:orderId/cancel',
+    {
+      schema: {
+        tags: ['órdenes'],
+        summary: 'Cancela una orden pendiente',
+        description:
+          'Solo una orden NEW: libera los pesos o las acciones que apartaba. ' +
+          'Una orden que ya no está pendiente responde 409 ORDER_NOT_PENDING, ' +
+          'y una de otro usuario 404 ORDER_NOT_FOUND.',
+        params: UserOrderParams,
+        response: { 200: OrderResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse },
+      },
+    },
+    async (request) => {
+      const order = await cancelOrder.execute({ ...request.params, correlationId: request.id });
+      request.log.info(
+        { userId: order.userId, orderId: order.id, status: order.status },
+        'orden cancelada',
+      );
+      return toOrderResponse(order);
+    },
+  );
+
   app.get(
     '/users/:userId/orders',
     {

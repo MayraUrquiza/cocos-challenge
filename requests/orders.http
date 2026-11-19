@@ -44,6 +44,12 @@ Content-Type: application/json
 
 { "instrumentId": 47, "side": "BUY", "type": "LIMIT", "size": 10, "price": 900 }
 
+### Cancelar la compra LIMIT pendiente de LOMA (orden 5): libera los 35.500 que apartaba
+POST {{baseUrl}}/v1/users/1/orders/5/cancel
+
+### Cancelar una orden ya ejecutada (orden 2): 409 ORDER_NOT_PENDING
+POST {{baseUrl}}/v1/users/1/orders/2/cancel
+
 ### Venta sobre la tenencia negativa de BMA: 201 con REJECTED e INSUFFICIENT_HOLDINGS
 POST {{baseUrl}}/v1/users/1/orders
 Content-Type: application/json

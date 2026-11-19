@@ -6,6 +6,7 @@ import { appReadGrants } from './0004_app_read_grants';
 import { accountEvents } from './0005_account_events';
 import { backfillLegacyOrdersMigration } from './0006_backfill_legacy_orders';
 import { accountWrites } from './0007_account_writes';
+import { orderStatusUpdates } from './0008_order_status_updates';
 
 /**
  * Migraciones en orden de ejecución. Se listan a mano en lugar de leer la
@@ -21,4 +22,5 @@ export const migrations: Record<string, Migration> = {
   '0005_account_events': accountEvents,
   '0006_backfill_legacy_orders': backfillLegacyOrdersMigration,
   '0007_account_writes': accountWrites,
+  '0008_order_status_updates': orderStatusUpdates,
 };

@@ -52,10 +52,22 @@ export class InMemoryAccountRepository implements AccountRepository {
       return { order: original.order, replayed: true };
     }
 
-    const { event, order } = decide({ state: stateFrom(events), nextOrderId: this.nextOrderId++ });
+    const decision = decide({ state: stateFrom(events), nextOrderId: this.nextOrderId++ });
 
-    events.push(event);
-    this.recorded.push({ userId, event, metadata });
+    events.push(decision.event);
+    this.recorded.push({ userId, event: decision.event, metadata });
+
+    if (decision.kind === 'transition') {
+      const index = this.orders.findIndex(
+        (order) => order.id === decision.orderId && order.status === decision.from,
+      );
+      if (index < 0) throw new Error(`La orden ${decision.orderId} ya no está en estado ${decision.from}`);
+      const updated: OrderView = { ...this.orders[index]!, status: decision.to };
+      this.orders[index] = updated;
+      return { order: updated, replayed: false };
+    }
+
+    const { order } = decision;
     const view: OrderView = {
       id: order.orderId,
       userId,

@@ -13,6 +13,7 @@ const STATUS_BY_APPLICATION_CODE: Record<ApplicationErrorCode, number> = {
   INSTRUMENT_NOT_FOUND: 404,
   INSTRUMENT_NOT_TRADABLE: 400,
   IDEMPOTENCY_KEY_REUSED: 409,
+  ORDER_NOT_PENDING: 409,
 };
 
 const CODE_BY_STATUS: Partial<Record<number, ErrorCode>> = {

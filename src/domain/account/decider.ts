@@ -1,11 +1,13 @@
 import type { OrderDetails } from '../order/order';
 import { SIDE_STRATEGIES } from '../order/side-strategies';
+import { InvalidTransitionError, transition } from '../order/state-machine';
 import { TYPE_STRATEGIES } from '../order/type-strategies';
 import { Money } from '../shared/money';
 import type { RejectReason } from '../shared/order-values';
 import { Quantity } from '../shared/quantity';
 import { EMPTY_ACCOUNT, type AccountState } from './account-state';
 import type {
+  AccountCancelOrderCommand,
   AccountCommand,
   AccountPlaceOrderCommand,
   AccountTransferCashCommand,
@@ -95,6 +97,7 @@ function transferCash(state: AccountState, command: AccountTransferCashCommand):
   const reason = FinancialValidationService.check(state, command.side, order);
   if (reason) {
     return {
+      kind: 'create',
       event: { type: 'OrderRejected', order, reason },
       order: { ...order, status: 'REJECTED', rejectReason: reason },
     };
@@ -104,7 +107,7 @@ function transferCash(state: AccountState, command: AccountTransferCashCommand):
     command.side === 'CASH_IN'
       ? { type: 'CashTransferredIn', orderId: order.orderId, amount: command.amount }
       : { type: 'CashTransferredOut', orderId: order.orderId, amount: command.amount };
-  return { event, order: { ...order, status: 'FILLED', rejectReason: null } };
+  return { kind: 'create', event, order: { ...order, status: 'FILLED', rejectReason: null } };
 }
 
 /** La mayor cantidad de acciones enteras que se compran con un monto (ADR-0004, punto 4). */
@@ -124,6 +127,7 @@ function placeOrder(state: AccountState, command: AccountPlaceOrderCommand): Dec
 
   // Una orden rechazada guarda lo que se llegó a resolver: null si no existe (ADR-0004, punto 4).
   const reject = (reason: RejectReason, size: Quantity | null, price: Money | null): Decision => ({
+    kind: 'create',
     event: { type: 'OrderRejected', order: { ...base, size, price }, reason, ...requested },
     order: { ...base, size, price, status: 'REJECTED', rejectReason: reason },
   });
@@ -148,7 +152,20 @@ function placeOrder(state: AccountState, command: AccountPlaceOrderCommand): Dec
     strategy.accepted === 'FILLED'
       ? { type: 'OrderFilled', order, ...requested }
       : { type: 'OrderAccepted', order, ...requested };
-  return { event, order: { ...order, status: strategy.accepted, rejectReason: null } };
+  return { kind: 'create', event, order: { ...order, status: strategy.accepted, rejectReason: null } };
+}
+
+function cancelOrder(state: AccountState, command: AccountCancelOrderCommand): Decision {
+  if (!state.pending.has(command.orderId)) {
+    throw new InvalidTransitionError(command.orderId, 'NOT_PENDING', 'CANCELLED');
+  }
+  return {
+    kind: 'transition',
+    event: { type: 'OrderCancelled', orderId: command.orderId },
+    orderId: command.orderId,
+    from: 'NEW',
+    to: transition(command.orderId, 'NEW', 'CANCELLED'),
+  };
 }
 
 export function decide(state: AccountState, command: AccountCommand): Decision {
@@ -157,5 +174,7 @@ export function decide(state: AccountState, command: AccountCommand): Decision {
       return transferCash(state, command);
     case 'PlaceOrder':
       return placeOrder(state, command);
+    case 'CancelOrder':
+      return cancelOrder(state, command);
   }
 }

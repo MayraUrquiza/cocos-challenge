@@ -3,7 +3,8 @@ export type ApplicationErrorCode =
   | 'ORDER_NOT_FOUND'
   | 'INSTRUMENT_NOT_FOUND'
   | 'INSTRUMENT_NOT_TRADABLE'
-  | 'IDEMPOTENCY_KEY_REUSED';
+  | 'IDEMPOTENCY_KEY_REUSED'
+  | 'ORDER_NOT_PENDING';
 
 export abstract class ApplicationError extends Error {
   abstract readonly code: ApplicationErrorCode;
@@ -52,5 +53,14 @@ export class IdempotencyKeyReusedError extends ApplicationError {
   constructor(readonly key: string) {
     super(`La Idempotency-Key "${key}" ya se usó con otro pedido`);
     this.name = 'IdempotencyKeyReusedError';
+  }
+}
+
+export class OrderNotPendingError extends ApplicationError {
+  readonly code = 'ORDER_NOT_PENDING';
+
+  constructor(readonly orderId: number) {
+    super(`La orden ${orderId} no está pendiente`);
+    this.name = 'OrderNotPendingError';
   }
 }
