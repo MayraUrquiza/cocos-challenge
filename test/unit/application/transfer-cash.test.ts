@@ -9,6 +9,7 @@ describe('TransferCashHandler', () => {
   const instruments: InstrumentFinder = {
     search: async () => ({ items: [], total: 0 }),
     findByTicker: async () => ({ id: ARS, ticker: 'ARS', name: 'PESOS', type: 'MONEDA' }),
+    findById: async () => null,
   };
 
   it('registra cada pedido como una orden sobre ARS con su evento, validando contra lo disponible', async () => {

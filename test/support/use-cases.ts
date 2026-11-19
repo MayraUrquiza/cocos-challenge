@@ -17,6 +17,7 @@ export function stubUseCases(overrides: Partial<UseCases> = {}): UseCases {
     listOrders: notStubbed('listOrders'),
     getPortfolio: notStubbed('getPortfolio'),
     transferCash: notStubbed('transferCash'),
+    placeOrder: notStubbed('placeOrder'),
     ...overrides,
   };
 }
