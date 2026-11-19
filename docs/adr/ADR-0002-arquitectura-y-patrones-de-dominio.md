@@ -43,18 +43,19 @@ El adaptador HTTP llama directamente al puerto inbound. Logging y `correlationId
 
 **Cómo se decide un pedido:**
 
-1. El **repositorio** bloquea la cuenta y carga sus órdenes.
-2. **`buildAccountState`** calcula con esas órdenes los pesos, las tenencias y las reservas.
+1. El **repositorio** bloquea la cuenta, carga sus órdenes y traduce cada una al evento que equivale a su estado final.
+2. **`evolve`** aplica esos eventos en orden y arma el estado de la cuenta: pesos, tenencias y órdenes pendientes con lo que aparta cada una.
 3. **`decide`** aplica las reglas al pedido y devuelve un evento: orden aceptada, ejecutada, rechazada o cancelada.
 4. El repositorio guarda la orden y su evento juntos.
 
-El portfolio reutiliza el paso 2 y le agrega las métricas de la vista.
+El portfolio reutiliza los pasos 1 y 2, sin bloquear la cuenta, y le agrega las métricas de la vista. Con event sourcing solo cambia de dónde salen los eventos del paso 1: del historial contable en lugar del estado de las órdenes. El dominio no cambia.
 
 | Pieza | Qué hace | Por qué así |
 |---|---|---|
-| **Decider** (`decide` / `evolve`) | `decide` recibe el estado y un pedido, y devuelve el evento resultante. `evolve` aplica un evento al estado, y recorriendo los eventos de una cuenta en orden, la reconstruye. | Son funciones puras. `evolve` existe desde el MVP y hoy solo se usa en la reconciliación ([ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md)). Con event sourcing pasaría a usarse en cada pedido, ya probada contra datos reales. |
-| **Estado de la cuenta** (`buildAccountState`) | Único cálculo de pesos, tenencias y reservas. Lo usan la escritura y el portfolio. | El disponible que ve el usuario tiene que ser exactamente el mismo contra el que se valida. |
-| **Strategies** de tipo y de side | El tipo (`MARKET` / `LIMIT`) define el precio y el estado inicial. El side (`BUY` / `SELL` / `CASH_IN` / `CASH_OUT`) define qué se valida, qué se reserva y cómo cambian los saldos. | Esa lógica la necesitan el decider, el estado de la cuenta y `evolve`: así se escribe una sola vez, y un tipo o side nuevo sin su strategy no compila. |
+| **Decider** (`decide` / `evolve`) | `decide` recibe el estado y un pedido, y devuelve el evento resultante. `evolve` aplica un evento al estado, y recorriendo los eventos de una cuenta en orden, la reconstruye. | Son funciones puras. `evolve` es la única definición de cómo cambia una cuenta: arma el estado en cada pedido y en el portfolio, y la reconciliación lo usa para comparar el historial contable con `orders` ([ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md)). Con event sourcing solo cambia de dónde salen los eventos. |
+| **Estado de la cuenta** (`AccountState`) | Pesos, acciones por instrumento y órdenes pendientes. Los reservados y los disponibles se calculan a partir de ellos. Lo arma `evolve` y lo usan la escritura y el portfolio. | El disponible que ve el usuario tiene que ser exactamente el mismo contra el que se valida. Guardar cada orden pendiente, y no solo el total reservado, permite que un `OrderCancelled` libere exactamente lo que apartó su orden. |
+| **Traducción del estado final** (`eventFromSnapshot`) | Convierte una orden en su estado final en el evento que deja la cuenta igual: una ejecutada en `OrderFilled`, una pendiente en `OrderAccepted`, una rechazada o cancelada en nada. | El saldo depende solo de dónde terminó cada orden. La usan `evolve` para los `LegacyOrderImported` y los adaptadores mientras `orders` sea la fuente de verdad. Como los eventos legacy quedan en el historial para siempre, la traducción es del dominio y sobrevive a event sourcing. |
+| **Strategies** de tipo y de side | El tipo (`MARKET` / `LIMIT`) define el precio y el estado inicial. El side (`BUY` / `SELL` / `CASH_IN` / `CASH_OUT`) define qué se valida, qué se reserva y cómo cambian los saldos. | Esa lógica la necesitan el decider, `evolve` y el cálculo de reservas: así se escribe una sola vez, y un tipo o side nuevo sin su strategy no compila. |
 | **Domain service** `FinancialValidationService` | Calcula el disponible y valida si alcanza para una orden. | La validación cruza toda la cuenta con una orden puntual, así que no pertenece a la orden. La comparten tres strategies. |
 | **State machine** | Única forma de cambiar el estado de una orden (ver la tabla siguiente). | Ningún caso de uso tiene que recordar qué transiciones son válidas. |
 | **Repository** `AccountRepository` | Su único método, `withAccount`, encapsula la transacción completa: bloqueo, idempotencia, carga, decisión y guardado ([ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md)). | La aplicación no maneja transacciones, y es la única pieza que cambia si cambia la persistencia. Tiene una versión en memoria para los tests. |
@@ -85,7 +86,8 @@ Cualquier otra transición es inválida y responde `409 ORDER_NOT_PENDING` ([ADR
 **Tests que verifican la decisiones:**
 
 - La state machine se prueba con **todas** las combinaciones de estado y acción.
-- `buildAccountState` y `projectPortfolio` reproducen el ejemplo del usuario 1: pesos 753.000, reservados 125.500, disponibles 627.500, valor total 889.756 y `NEGATIVE_QUANTITY` en BMA.
+- `evolve` y `projectPortfolio` reproducen el ejemplo del usuario 1: pesos 753.000, reservados 125.500, disponibles 627.500, valor total 889.756 y `NEGATIVE_QUANTITY` en BMA.
+- El historial completo de esa cuenta (la orden 3 aceptada y cancelada, la 9 aceptada y ejecutada) y el estado final de sus órdenes dan el mismo estado y el mismo portfolio.
 - Paridad: el estado que carga el repositorio y el que usa el portfolio son iguales, y `cash.available` coincide con `availableCash`.
 - Los casos de uso se testean con el repositorio en memoria, sin base de datos ni HTTP.
 
@@ -115,7 +117,7 @@ Cualquier otra transición es inválida y responde `409 ORDER_NOT_PENDING` ([ADR
 | Ciclo de vida de la orden | **State machine con tabla tipada** | `status` asignado con `if` en cada caso de uso (sin ayuda del compilador al agregar estados). |
 | Validaciones financieras | **Domain service sin estado** | Métodos en `Order` (no conoce la cuenta) o validación en los casos de uso (duplica reglas fuera del dominio). |
 | Variación por tipo y side | **Strategies con registro exhaustivo** | `switch` repetido en decider, `evolve` y proyección o herencia (2 tipos × 4 sides = 8 subclases con lógica duplicada). |
-| Estado de la cuenta | **Un único cálculo en el dominio** | Sumas en SQL compartidas (regla fuera del dominio, no testeable sin base, `evolve` la reimplementa). |
+| Estado de la cuenta | **Un único cálculo, `evolve`, sobre eventos** | Sumas en SQL compartidas (regla fuera del dominio, no testeable sin base, `evolve` la reimplementa). Un cálculo propio sobre órdenes además de `evolve` (dos definiciones de cómo cambia una cuenta, y migrar a event sourcing obligaría a cambiar el dominio). |
 | Persistencia del agregado | **Un repository con `withAccount`** | Repositorios por tabla (permiten modificar órdenes sin pasar por la cuenta). |
 | Portfolio | **Projector puro, calculado al leer** | Todo en SQL (costo promedio con ventanas recursivas, no testeable sin base) o tabla materializada desde el MVP (queda como evolución, [ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md)). |
 

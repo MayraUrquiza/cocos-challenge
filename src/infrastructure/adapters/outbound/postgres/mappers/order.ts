@@ -1,4 +1,5 @@
 import type { OrderView } from '../../../../../application/shared/order-view';
+import type { OrderSnapshot } from '../../../../../domain/order/order';
 import type { InstrumentType } from '../../../../../domain/shared/instrument';
 import { Money } from '../../../../../domain/shared/money';
 import {
@@ -68,4 +69,10 @@ export function toOrderView(row: OrderRow): OrderView {
         : oneOf(REJECT_REASONS, row.rejectreason, 'motivo de rechazo', row.id),
     datetime: required(row.datetime, 'fecha', row.id),
   };
+}
+
+/** Fila → la orden en su estado final, con las mismas validaciones que el read model. */
+export function toOrderSnapshot(row: OrderRow): OrderSnapshot {
+  const { id, instrumentId, side, type, size, price, status } = toOrderView(row);
+  return { orderId: id, instrumentId, side, type, size, price, status };
 }

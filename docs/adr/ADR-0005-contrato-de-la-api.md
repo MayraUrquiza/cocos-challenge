@@ -5,7 +5,7 @@
 | **Estado** | PROPUESTO |
 | **Autores** | Mayra Urquiza |
 | **Decisores** | Mayra Urquiza |
-| **Última actualización** | 17 nov 2026 |
+| **Última actualización** | 18 nov 2026 |
 | **Relacionado** | [RFC-001](../rfc/RFC-001-api-portfolio-busqueda-ordenes.md) · [ADR-0001](ADR-0001-stack-http-validacion-y-acceso-a-datos.md) · [ADR-0002](ADR-0002-arquitectura-y-patrones-de-dominio.md) · [ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md) · [ADR-0004](ADR-0004-reglas-de-negocio.md) |
 
 ## Contexto
@@ -73,6 +73,7 @@ Podemos suponer que la API la consumirán aplicaciones web y móviles (el reposi
   | `limit` / `offset` | `limit` entre 1 y 100 (20 por defecto), y `offset` mayor o igual que 0. |
 
 - **Listas paginadas** (búsqueda y listado de órdenes): `{ "items": [...], "total": n, "limit": n, "offset": n }`. El listado de órdenes va de la más nueva a la más vieja.
+- **Posiciones del portfolio** ordenadas por ticker. Así la respuesta es estable entre pedidos y el cliente no depende del orden en que se cargaron las órdenes.
 - **Fechas** en ISO 8601 UTC, por ejemplo `"2026-11-17T14:02:11.000Z"`.
 
 ### 5. Todo lo que pertenece a una cuenta cuelga del usuario
