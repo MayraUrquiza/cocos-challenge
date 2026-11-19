@@ -9,6 +9,7 @@ import { EMPTY_ACCOUNT, type AccountState } from './account-state';
 import type {
   AccountCancelOrderCommand,
   AccountCommand,
+  AccountFillOrderCommand,
   AccountPlaceOrderCommand,
   AccountTransferCashCommand,
   Decision,
@@ -168,6 +169,18 @@ function cancelOrder(state: AccountState, command: AccountCancelOrderCommand): D
   };
 }
 
+function fillOrder(state: AccountState, command: AccountFillOrderCommand): Decision {
+  const order = state.pending.get(command.orderId);
+  if (!order) throw new InvalidTransitionError(command.orderId, 'NOT_PENDING', 'FILLED');
+  return {
+    kind: 'transition',
+    event: { type: 'OrderFilled', order },
+    orderId: command.orderId,
+    from: 'NEW',
+    to: transition(command.orderId, 'NEW', 'FILLED'),
+  };
+}
+
 export function decide(state: AccountState, command: AccountCommand): Decision {
   switch (command.type) {
     case 'TransferCash':
@@ -176,5 +189,7 @@ export function decide(state: AccountState, command: AccountCommand): Decision {
       return placeOrder(state, command);
     case 'CancelOrder':
       return cancelOrder(state, command);
+    case 'FillOrder':
+      return fillOrder(state, command);
   }
 }
