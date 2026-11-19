@@ -16,10 +16,13 @@ export const healthRoutes: FastifyPluginAsyncTypebox<HealthRoutesOptions> = asyn
         tags: ['operación'],
         summary: 'Estado del servicio y de la base de datos',
         response: {
-          200: Type.Object({ status: Type.Literal('ok') }, { additionalProperties: false }),
+          200: Type.Object(
+            { status: Type.Literal('ok') },
+            { additionalProperties: false, description: 'El servicio y la base responden.' },
+          ),
           503: Type.Object(
             { status: Type.Literal('unavailable') },
-            { additionalProperties: false },
+            { additionalProperties: false, description: 'La base de datos no responde.' },
           ),
         },
       },
