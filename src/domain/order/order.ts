@@ -1,5 +1,5 @@
 import type { Money } from '../shared/money';
-import type { OrderSide, OrderStatus, OrderType } from '../shared/order-values';
+import type { OrderSide, OrderStatus, OrderType, RejectReason } from '../shared/order-values';
 import type { Quantity } from '../shared/quantity';
 
 export interface OrderDetails {
@@ -23,4 +23,5 @@ export interface OrderSnapshot {
   size: Quantity | null;
   price: Money | null;
   status: OrderStatus;
+  rejectReason: RejectReason | null;
 }
