@@ -1,9 +1,16 @@
 import type { OrderDetails } from '../order/order';
 import { SIDE_STRATEGIES } from '../order/side-strategies';
+import { TYPE_STRATEGIES } from '../order/type-strategies';
 import { Money } from '../shared/money';
+import type { RejectReason } from '../shared/order-values';
 import { Quantity } from '../shared/quantity';
 import { EMPTY_ACCOUNT, type AccountState } from './account-state';
-import type { AccountCommand, AccountTransferCashCommand, Decision } from './decision';
+import type {
+  AccountCommand,
+  AccountPlaceOrderCommand,
+  AccountTransferCashCommand,
+  Decision,
+} from './decision';
 import { eventFromSnapshot, type AccountEvent } from './events';
 import { FinancialValidationService } from './financial-validation';
 
@@ -85,28 +92,70 @@ function transferCash(state: AccountState, command: AccountTransferCashCommand):
     size: Quantity.of(command.amount.toString(), 2),
     price: CASH_PRICE,
   };
-  const filled = (event: AccountEvent): Decision => ({
-    event,
-    order: { ...order, status: 'FILLED', rejectReason: null },
+  const reason = FinancialValidationService.check(state, command.side, order);
+  if (reason) {
+    return {
+      event: { type: 'OrderRejected', order, reason },
+      order: { ...order, status: 'REJECTED', rejectReason: reason },
+    };
+  }
+
+  const event: AccountEvent =
+    command.side === 'CASH_IN'
+      ? { type: 'CashTransferredIn', orderId: order.orderId, amount: command.amount }
+      : { type: 'CashTransferredOut', orderId: order.orderId, amount: command.amount };
+  return { event, order: { ...order, status: 'FILLED', rejectReason: null } };
+}
+
+/** La mayor cantidad de acciones enteras que se compran con un monto (ADR-0004, punto 4). */
+function wholeSharesFor(amount: Money, price: Money): Quantity {
+  return Quantity.of(amount.toDecimal().dividedToIntegerBy(price.toDecimal()).toFixed(0), 0);
+}
+
+function placeOrder(state: AccountState, command: AccountPlaceOrderCommand): Decision {
+  const { quantity } = command;
+  const requested = 'amount' in quantity ? { requestedAmount: quantity.amount } : {};
+  const base = {
+    orderId: command.orderId,
+    instrumentId: command.instrumentId,
+    side: command.side,
+    type: command.orderType,
+  };
+
+  // Una orden rechazada guarda lo que se llegó a resolver: null si no existe (ADR-0004, punto 4).
+  const reject = (reason: RejectReason, size: Quantity | null, price: Money | null): Decision => ({
+    event: { type: 'OrderRejected', order: { ...base, size, price }, reason, ...requested },
+    order: { ...base, size, price, status: 'REJECTED', rejectReason: reason },
   });
 
-  if (command.side === 'CASH_IN') {
-    return filled({ type: 'CashTransferredIn', orderId: order.orderId, amount: command.amount });
-  }
+  const strategy = TYPE_STRATEGIES[command.orderType];
+  const price = strategy.price(command);
+  if (!price) return reject('NO_MARKET_PRICE', 'size' in quantity ? quantity.size : null, null);
 
-  if (FinancialValidationService.hasAvailableCash(state, command.amount)) {
-    return filled({ type: 'CashTransferredOut', orderId: order.orderId, amount: command.amount });
-  }
+  const size = 'size' in quantity ? quantity.size : wholeSharesFor(quantity.amount, price);
+  if (size.isZero()) return reject('ZERO_QUANTITY', size, price);
 
-  return {
-    event: { type: 'OrderRejected', order, reason: 'INSUFFICIENT_FUNDS' },
-    order: { ...order, status: 'REJECTED', rejectReason: 'INSUFFICIENT_FUNDS' },
-  };
+  const reason = FinancialValidationService.check(state, command.side, {
+    instrumentId: command.instrumentId,
+    size,
+    price,
+  });
+  if (reason) return reject(reason, size, price);
+
+  // Una MARKET queda ejecutada, una LIMIT pendiente.
+  const order: OrderDetails = { ...base, size, price };
+  const event: AccountEvent =
+    strategy.accepted === 'FILLED'
+      ? { type: 'OrderFilled', order, ...requested }
+      : { type: 'OrderAccepted', order, ...requested };
+  return { event, order: { ...order, status: strategy.accepted, rejectReason: null } };
 }
 
 export function decide(state: AccountState, command: AccountCommand): Decision {
   switch (command.type) {
     case 'TransferCash':
       return transferCash(state, command);
+    case 'PlaceOrder':
+      return placeOrder(state, command);
   }
 }

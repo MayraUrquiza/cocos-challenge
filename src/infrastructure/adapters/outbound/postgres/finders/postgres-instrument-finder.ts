@@ -24,6 +24,15 @@ export class PostgresInstrumentFinder implements InstrumentFinder {
     return row ? toInstrument(row) : null;
   }
 
+  async findById(instrumentId: number): Promise<Instrument | null> {
+    const row = await this.db
+      .selectFrom('instruments')
+      .select(['id', 'ticker', 'name', 'type'])
+      .where('id', '=', instrumentId)
+      .executeTakeFirst();
+    return row ? toInstrument(row) : null;
+  }
+
   async search({
     text,
     limit,

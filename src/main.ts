@@ -1,3 +1,4 @@
+import { PlaceOrderHandler } from './application/use-cases/commands/place-order';
 import { TransferCashHandler } from './application/use-cases/commands/transfer-cash';
 import { GetOrderHandler } from './application/use-cases/queries/get-order';
 import { GetPortfolioHandler } from './application/use-cases/queries/get-portfolio';
@@ -43,6 +44,7 @@ async function main(): Promise<void> {
         listOrders: new ListOrdersHandler(userFinder, orderFinder),
         getPortfolio: new GetPortfolioHandler(portfolioFinder, priceProvider),
         transferCash: new TransferCashHandler(accountRepository, instrumentFinder, clock),
+        placeOrder: new PlaceOrderHandler(accountRepository, instrumentFinder, priceProvider, clock),
       },
     },
     { logger: loggerOptions(config.logLevel) },

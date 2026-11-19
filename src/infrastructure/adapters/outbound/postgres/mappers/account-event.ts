@@ -32,12 +32,22 @@ export function toEventRecord(event: AccountEvent): EventRecord {
     payload,
   });
 
+  const requested = (amount: { toString(): string } | undefined) =>
+    amount ? { requestedAmount: amount.toString() } : {};
+
   switch (event.type) {
     case 'OrderAccepted':
     case 'OrderFilled':
-      return record(event.order.orderId, orderPayload(event.order));
+      return record(event.order.orderId, {
+        ...orderPayload(event.order),
+        ...requested(event.requestedAmount),
+      });
     case 'OrderRejected':
-      return record(event.order.orderId, { ...orderPayload(event.order), reason: event.reason });
+      return record(event.order.orderId, {
+        ...orderPayload(event.order),
+        reason: event.reason,
+        ...requested(event.requestedAmount),
+      });
     case 'OrderCancelled':
       return record(event.orderId, { orderId: event.orderId });
     case 'CashTransferredIn':
