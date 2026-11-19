@@ -1,7 +1,7 @@
 import type { OrderSnapshot } from '../order/order';
 import type { PriceSources } from '../order/type-strategies';
 import type { Money } from '../shared/money';
-import type { OrderType } from '../shared/order-values';
+import type { OrderStatus, OrderType } from '../shared/order-values';
 import type { Quantity } from '../shared/quantity';
 import type { AccountEvent } from './events';
 
@@ -22,9 +22,22 @@ export interface AccountPlaceOrderCommand extends PriceSources {
   quantity: { size: Quantity } | { amount: Money };
 }
 
-export type AccountCommand = AccountTransferCashCommand | AccountPlaceOrderCommand;
-
-export interface Decision {
-  event: AccountEvent;
-  order: OrderSnapshot;
+export interface AccountCancelOrderCommand {
+  type: 'CancelOrder';
+  orderId: number;
 }
+
+export type AccountCommand =
+  | AccountTransferCashCommand
+  | AccountPlaceOrderCommand
+  | AccountCancelOrderCommand;
+
+export type Decision =
+  | { kind: 'create'; event: AccountEvent; order: OrderSnapshot }
+  | {
+      kind: 'transition';
+      event: AccountEvent;
+      orderId: number;
+      from: OrderStatus;
+      to: OrderStatus;
+    };
