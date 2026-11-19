@@ -102,7 +102,7 @@ export class PostgresAccountRepository implements AccountRepository {
       await this.insertOrder(trx, userId, decision.order, reservedId, metadata);
       return decision.order.orderId;
     }
-    await this.applyTransition(trx, userId, decision);
+    await this.applyTransition(trx, userId, decision, metadata);
     return decision.orderId;
   }
 
@@ -135,15 +135,20 @@ export class PostgresAccountRepository implements AccountRepository {
       .execute();
   }
 
-  /** Aplica la transición solo si la orden sigue en el estado esperado. */
+  /**
+   * Aplica la transición solo si la orden sigue en el estado esperado. La fecha
+   * pasa a ser la del cambio: así el orden por fecha refleja cuándo se ejecutó
+   * cada orden (ADR-0003, punto 6).
+   */
   private async applyTransition(
     trx: Tx,
     userId: number,
     { orderId, from, to }: Extract<Decision, { kind: 'transition' }>,
+    { occurredAt }: RecordMetadata,
   ): Promise<void> {
     const { numUpdatedRows } = await trx
       .updateTable('orders')
-      .set({ status: to })
+      .set({ status: to, datetime: occurredAt })
       .where('id', '=', orderId)
       .where('userid', '=', userId)
       .where('status', '=', from)

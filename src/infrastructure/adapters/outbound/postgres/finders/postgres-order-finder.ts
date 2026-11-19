@@ -38,6 +38,15 @@ export class PostgresOrderFinder implements OrderFinder {
     return row ? toOrderView(row) : null;
   }
 
+  async findOwnerId(orderId: number): Promise<number | null> {
+    const row = await this.db
+      .selectFrom('orders')
+      .select('userid')
+      .where('id', '=', orderId)
+      .executeTakeFirst();
+    return row?.userid ?? null;
+  }
+
   async listByUser({
     userId,
     limit,
