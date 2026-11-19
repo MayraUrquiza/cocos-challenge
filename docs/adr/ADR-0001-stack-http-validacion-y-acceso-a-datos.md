@@ -5,7 +5,7 @@
 | **Estado** | PROPUESTO |
 | **Autores** | Mayra Urquiza |
 | **Decisores** | Mayra Urquiza |
-| **Última actualización** | 17 nov 2026 |
+| **Última actualización** | 19 nov 2026 |
 | **Relacionado** | [RFC-001](../rfc/RFC-001-api-portfolio-busqueda-ordenes.md) · [ADR-0002](ADR-0002-arquitectura-y-patrones-de-dominio.md) · [ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md) · [ADR-0005](ADR-0005-contrato-de-la-api.md) |
 
 ## Contexto
@@ -28,8 +28,8 @@ El enunciado solicita Node.js y deja libre la elección del framework HTTP, la f
 
 - Toda ruta declara schema de request y de response, así que solo se serializan los campos declarados.
 - Se rechazan las propiedades no declaradas (`additionalProperties: false`): un `price` en una orden `MARKET` es un `400`, no un campo que se descarta en silencio.
-- Las reglas cruzadas se expresan con uniones: `MARKET` sin `price` y `LIMIT` con `price`, y exactamente uno entre `size` y `amount`.
-- Los decimales se validan con aritmética decimal, no con `multipleOf` sobre un `double`.
+- Las reglas cruzadas se expresan en el schema: una unión con discriminador separa `MARKET` sin `price` de `LIMIT` con `price`, y una regla de validación propia exige exactamente uno entre `size` y `amount`.
+- La cantidad de decimales se cuenta sobre el número tal como llega en el JSON, no con `multipleOf`, que falla por los errores de redondeo de los `double`. Los cálculos posteriores usan aritmética decimal.
 - Un formateador propio lleva los errores de Ajv al formato de error de la API ([ADR-0005](ADR-0005-contrato-de-la-api.md)).
 - TypeBox valida solo la forma del request, las reglas de negocio viven en el dominio ([ADR-0002](ADR-0002-arquitectura-y-patrones-de-dominio.md)).
 
@@ -48,7 +48,7 @@ El enunciado solicita Node.js y deja libre la elección del framework HTTP, la f
 
 En cada push y pull request se ejecutan:
 
-- Todos los tests, con un PostgreSQL levantado como servicio.
+- Todos los tests, con PostgreSQL levantado con el mismo `docker compose` que en desarrollo.
 - Las reglas de dependencias entre capas con `dependency-cruiser` ([ADR-0002](ADR-0002-arquitectura-y-patrones-de-dominio.md)).
 - La verificación de que `schema.ts` está sincronizado con las migraciones: se regenera y falla si hay diferencias.
 

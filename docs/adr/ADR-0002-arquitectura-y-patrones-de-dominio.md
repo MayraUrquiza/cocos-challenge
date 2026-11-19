@@ -20,7 +20,7 @@ El servicio mueve dinero: valida fondos y tenencias, registra órdenes y calcula
 
 **Regla de dependencias:** `infrastructure → application → domain`.
 
-- `domain/` no importa nada externo, salvo `decimal.js` a través del value object `Money`.
+- `domain/` no importa nada externo, salvo `decimal.js` a través de sus value objects numéricos (`Money`, `Quantity` y `Percentage`).
 - `application/` importa solo de `domain/` y de sus puertos.
 - `infrastructure/` es la única capa que conoce Fastify, Kysely y PostgreSQL ([ADR-0001](ADR-0001-stack-http-validacion-y-acceso-a-datos.md)).
 
@@ -30,10 +30,12 @@ El servicio mueve dinero: valida fondos y tenencias, registra órdenes y calcula
 
 | | Comandos | Queries |
 |---|---|---|
-| Casos de uso | `PlaceOrder`, `CancelOrder`, `TransferCash`, `FillOrder` | `GetPortfolio`, `SearchInstruments`, `GetOrder`, `ListOrders` |
-| Puertos de salida | `AccountRepository`, `PriceProvider` | `PortfolioFinder`, `InstrumentFinder`, `OrderFinder` |
-| Modelo | Agregado Cuenta y su decider | Vistas con SQL a medida, el portfolio pasa por una proyección pura |
+| Casos de uso | `PlaceOrder`, `CancelOrder`, `TransferCash`, `FillOrder` | `GetPortfolio`, `SearchInstruments`, `GetOrder`, `ListOrders`, `ReconcileAccounts` |
+| Puertos de salida | `AccountRepository`, `InstrumentFinder`, `OrderFinder`, `PriceProvider`, `Clock` | `PortfolioFinder`, `InstrumentFinder`, `OrderFinder`, `UserFinder`, `PriceProvider`, `AccountEventsFinder` |
+| Modelo | Agregado Cuenta y su decider | Vistas con SQL a medida. El portfolio y la reconciliación arman el estado con `evolve` |
 | Base de datos | La misma PostgreSQL | La misma PostgreSQL |
+
+Los comandos usan los finders solo para las validaciones previas al bloqueo, como que el instrumento exista o a quién pertenece una orden. Todo lo que decide sobre la cuenta pasa por el repositorio.
 
 El adaptador HTTP llama directamente al puerto inbound. Logging y `correlationId` van en hooks de Fastify, y la transacción y el bloqueo, en el repositorio.
 
@@ -45,8 +47,8 @@ El adaptador HTTP llama directamente al puerto inbound. Logging y `correlationId
 
 1. El **repositorio** bloquea la cuenta, carga sus órdenes y traduce cada una al evento que equivale a su estado final.
 2. **`evolve`** aplica esos eventos en orden y arma el estado de la cuenta: pesos, tenencias y órdenes pendientes con lo que aparta cada una.
-3. **`decide`** aplica las reglas al pedido y devuelve un evento (orden aceptada, ejecutada, rechazada o cancelada) junto con la orden a registrar. La orden va aparte porque algunos eventos no la describen completa: los de transferencias solo traen el número y el monto.
-4. El repositorio guarda la orden y su evento juntos.
+3. **`decide`** aplica las reglas al pedido y devuelve un evento (orden aceptada, ejecutada, rechazada o cancelada) junto con lo que cambia en `orders`: una orden nueva, o el cambio de estado de una existente al cancelarla o ejecutarla. La orden nueva va aparte porque algunos eventos no la describen completa: los de transferencias solo traen el número y el monto.
+4. El repositorio guarda ese cambio y el evento juntos.
 
 El portfolio reutiliza los pasos 1 y 2, sin bloquear la cuenta, y le agrega las métricas de la vista. Con event sourcing solo cambia de dónde salen los eventos del paso 1: del historial contable en lugar del estado de las órdenes. El dominio no cambia.
 
@@ -59,7 +61,7 @@ El portfolio reutiliza los pasos 1 y 2, sin bloquear la cuenta, y le agrega las 
 | **Domain service** `FinancialValidationService` | Calcula el disponible y valida si alcanza para una orden, según el side: pesos para `BUY` y `CASH_OUT`, acciones para `SELL`. | La validación cruza toda la cuenta con una orden puntual, así que no pertenece a la orden. |
 | **State machine** | Única forma de cambiar el estado de una orden (ver la tabla siguiente). | Ningún caso de uso tiene que recordar qué transiciones son válidas. |
 | **Repository** `AccountRepository` | Su único método, `withAccount`, encapsula la transacción completa: bloqueo, idempotencia, carga, decisión y guardado ([ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md)). | La aplicación no maneja transacciones, y es la única pieza que cambia si cambia la persistencia. Tiene una versión en memoria para los tests. |
-| **Projection** `projectPortfolio` | Arma el portfolio a partir del estado de la cuenta y agrega costo promedio, valor de mercado, ganancia, rendimientos y avisos. | El costo promedio recorre los movimientos en orden, algo difícil de leer y de testear en SQL. |
+| **Projection** `projectPortfolio` | Arma el portfolio a partir de los eventos de la cuenta: el estado sale de `evolve`, y el costo promedio de recorrerlos en orden. Agrega valor de mercado, ganancia, rendimientos y avisos. | El costo promedio recorre los movimientos en orden, algo difícil de leer y de testear en SQL. |
 
 Las reglas concretas (cuánto se reserva, cuándo se rechaza, cómo se calcula el rendimiento) están en [ADR-0004](ADR-0004-reglas-de-negocio.md).
 
@@ -85,11 +87,12 @@ Cualquier otra transición es inválida y responde `409 ORDER_NOT_PENDING` ([ADR
 
 **Tests que verifican la decisiones:**
 
-- La state machine se prueba con **todas** las combinaciones de estado y acción.
+- La state machine se prueba con **todas** las combinaciones de estado de origen y de destino.
 - `evolve` y `projectPortfolio` reproducen el ejemplo del usuario 1: pesos 753.000, reservados 125.500, disponibles 627.500, valor total 889.756 y `NEGATIVE_QUANTITY` en BMA.
-- El historial completo de esa cuenta (la orden 3 aceptada y cancelada, la 9 aceptada y ejecutada) y el estado final de sus órdenes dan el mismo estado y el mismo portfolio.
-- Paridad: el estado que carga el repositorio y el que usa el portfolio son iguales, y `cash.available` coincide con `availableCash`.
+- El historial completo de esa cuenta (la orden 3 aceptada y cancelada, la 9 aceptada y ejecutada) y el estado final de sus órdenes dan el mismo estado.
 - Los casos de uso se testean con el repositorio en memoria, sin base de datos ni HTTP.
+
+El repositorio y el portfolio no necesitan un test de paridad: arman el estado con la misma lectura de `orders` y la misma traducción a eventos, así que el disponible que se muestra y el que se valida no pueden diferir.
 
 ## Opciones evaluadas
 
