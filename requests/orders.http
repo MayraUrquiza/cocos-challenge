@@ -24,6 +24,20 @@ Content-Type: application/json
 
 { "instrumentId": 47, "side": "BUY", "type": "MARKET", "amount": 50000 }
 
+### Compra con Idempotency-Key: enviarla dos veces devuelve la misma orden, sin duplicarla
+POST {{baseUrl}}/v1/users/1/orders
+Content-Type: application/json
+Idempotency-Key: 6f1c2a52-8a3e-4c1f-9d4b-2b8e7f0a1c11
+
+{ "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 2 }
+
+### La misma Idempotency-Key con otro body: 409 IDEMPOTENCY_KEY_REUSED
+POST {{baseUrl}}/v1/users/1/orders
+Content-Type: application/json
+Idempotency-Key: 6f1c2a52-8a3e-4c1f-9d4b-2b8e7f0a1c11
+
+{ "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 3 }
+
 ### Compra LIMIT por cantidad: queda NEW y aparta 9.000 pesos
 POST {{baseUrl}}/v1/users/1/orders
 Content-Type: application/json
