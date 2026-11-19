@@ -5,7 +5,7 @@
 | **Estado** | PROPUESTO |
 | **Autores** | Mayra Urquiza |
 | **Decisores** | Mayra Urquiza |
-| **Última actualización** | 18 nov 2026 |
+| **Última actualización** | 19 nov 2026 |
 | **Relacionado** | [RFC-001](../rfc/RFC-001-api-portfolio-busqueda-ordenes.md) · [ADR-0001](ADR-0001-stack-http-validacion-y-acceso-a-datos.md) · [ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md) · [ADR-0004](ADR-0004-reglas-de-negocio.md) · [ADR-0005](ADR-0005-contrato-de-la-api.md) |
 
 ## Contexto
@@ -45,7 +45,7 @@ El adaptador HTTP llama directamente al puerto inbound. Logging y `correlationId
 
 1. El **repositorio** bloquea la cuenta, carga sus órdenes y traduce cada una al evento que equivale a su estado final.
 2. **`evolve`** aplica esos eventos en orden y arma el estado de la cuenta: pesos, tenencias y órdenes pendientes con lo que aparta cada una.
-3. **`decide`** aplica las reglas al pedido y devuelve un evento: orden aceptada, ejecutada, rechazada o cancelada.
+3. **`decide`** aplica las reglas al pedido y devuelve un evento (orden aceptada, ejecutada, rechazada o cancelada) junto con la orden a registrar. La orden va aparte porque algunos eventos no la describen completa: los de transferencias solo traen el número y el monto.
 4. El repositorio guarda la orden y su evento juntos.
 
 El portfolio reutiliza los pasos 1 y 2, sin bloquear la cuenta, y le agrega las métricas de la vista. Con event sourcing solo cambia de dónde salen los eventos del paso 1: del historial contable en lugar del estado de las órdenes. El dominio no cambia.
