@@ -17,3 +17,39 @@ GET {{baseUrl}}/v1/users/2/orders/1
 
 ### Usuario inexistente: 404 USER_NOT_FOUND
 GET {{baseUrl}}/v1/users/999/orders
+
+### Compra MARKET por monto: 50.000 / 925,85 = 54 PAMP, queda FILLED
+POST {{baseUrl}}/v1/users/1/orders
+Content-Type: application/json
+
+{ "instrumentId": 47, "side": "BUY", "type": "MARKET", "amount": 50000 }
+
+### Compra LIMIT por cantidad: queda NEW y aparta 9.000 pesos
+POST {{baseUrl}}/v1/users/1/orders
+Content-Type: application/json
+
+{ "instrumentId": 47, "side": "BUY", "type": "LIMIT", "size": 10, "price": 900 }
+
+### Venta sobre la tenencia negativa de BMA: 201 con REJECTED e INSUFFICIENT_HOLDINGS
+POST {{baseUrl}}/v1/users/1/orders
+Content-Type: application/json
+
+{ "instrumentId": 31, "side": "SELL", "type": "MARKET", "size": 1 }
+
+### MARKET sobre una acción sin precios (PGR): 201 con REJECTED y NO_MARKET_PRICE
+POST {{baseUrl}}/v1/users/1/orders
+Content-Type: application/json
+
+{ "instrumentId": 3, "side": "BUY", "type": "MARKET", "size": 5 }
+
+### size y amount juntos: 400 VALIDATION_ERROR
+POST {{baseUrl}}/v1/users/1/orders
+Content-Type: application/json
+
+{ "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 1, "amount": 1000 }
+
+### Operar pesos: 400 INSTRUMENT_NOT_TRADABLE
+POST {{baseUrl}}/v1/users/1/orders
+Content-Type: application/json
+
+{ "instrumentId": 66, "side": "BUY", "type": "MARKET", "size": 1 }
