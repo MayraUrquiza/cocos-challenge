@@ -27,10 +27,16 @@ export interface AccountCancelOrderCommand {
   orderId: number;
 }
 
+export interface AccountFillOrderCommand {
+  type: 'FillOrder';
+  orderId: number;
+}
+
 export type AccountCommand =
   | AccountTransferCashCommand
   | AccountPlaceOrderCommand
-  | AccountCancelOrderCommand;
+  | AccountCancelOrderCommand
+  | AccountFillOrderCommand;
 
 export type Decision =
   | { kind: 'create'; event: AccountEvent; order: OrderSnapshot }

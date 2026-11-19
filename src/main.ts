@@ -1,4 +1,5 @@
 import { CancelOrderHandler } from './application/use-cases/commands/cancel-order';
+import { FillOrderHandler } from './application/use-cases/commands/fill-order';
 import { PlaceOrderHandler } from './application/use-cases/commands/place-order';
 import { TransferCashHandler } from './application/use-cases/commands/transfer-cash';
 import { GetOrderHandler } from './application/use-cases/queries/get-order';
@@ -47,9 +48,13 @@ async function main(): Promise<void> {
         transferCash: new TransferCashHandler(accountRepository, instrumentFinder, clock),
         placeOrder: new PlaceOrderHandler(accountRepository, instrumentFinder, priceProvider, clock),
         cancelOrder: new CancelOrderHandler(accountRepository, orderFinder, clock),
+        fillOrder: new FillOrderHandler(accountRepository, orderFinder, clock),
       },
     },
-    { logger: loggerOptions(config.logLevel) },
+    {
+      logger: loggerOptions(config.logLevel),
+      marketSimulationEnabled: config.marketSimulationEnabled,
+    },
   );
   app.addHook('onClose', async () => {
     await db.destroy();

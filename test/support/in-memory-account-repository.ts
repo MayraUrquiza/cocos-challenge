@@ -62,7 +62,7 @@ export class InMemoryAccountRepository implements AccountRepository {
         (order) => order.id === decision.orderId && order.status === decision.from,
       );
       if (index < 0) throw new Error(`La orden ${decision.orderId} ya no está en estado ${decision.from}`);
-      const updated: OrderView = { ...this.orders[index]!, status: decision.to };
+      const updated: OrderView = { ...this.orders[index]!, status: decision.to, datetime: metadata.occurredAt };
       this.orders[index] = updated;
       return { order: updated, replayed: false };
     }

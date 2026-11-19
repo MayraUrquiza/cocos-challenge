@@ -17,6 +17,7 @@ export interface AppDependencies {
 
 export interface BuildAppOptions {
   logger?: FastifyServerOptions['logger'];
+  marketSimulationEnabled?: boolean;
 }
 
 /**
@@ -60,7 +61,11 @@ export async function buildApp(deps: AppDependencies, options: BuildAppOptions =
   await app.register(swaggerUi, { routePrefix: '/docs' });
 
   await app.register(healthRoutes, { checkDatabase: deps.checkDatabase });
-  await app.register(v1Routes, { prefix: '/v1', useCases: deps.useCases });
+  await app.register(v1Routes, {
+    prefix: '/v1',
+    useCases: deps.useCases,
+    marketSimulationEnabled: options.marketSimulationEnabled ?? false,
+  });
 
   return app;
 }

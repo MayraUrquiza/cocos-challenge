@@ -1,0 +1,20 @@
+# Ejecución simulada de órdenes LIMIT (ADR-0005, punto 6).
+# Solo existe con MARKET_SIMULATION_ENABLED=true en .env. Apagada, responde 404.
+# Ejecutar en orden: las dos ejecuciones usan el id de la orden que crea el primer request.
+@baseUrl = http://localhost:3000
+
+### Crear una compra LIMIT (5 PAMP a 900): 201 con NEW
+# @name limitOrder
+POST {{baseUrl}}/v1/users/1/orders
+Content-Type: application/json
+
+{ "instrumentId": 47, "side": "BUY", "type": "LIMIT", "size": 5, "price": 900 }
+
+### Ejecutarla: 200 con FILLED
+POST {{baseUrl}}/v1/simulation/orders/{{limitOrder.response.body.id}}/fill
+
+### Ejecutarla otra vez: 409 ORDER_NOT_PENDING
+POST {{baseUrl}}/v1/simulation/orders/{{limitOrder.response.body.id}}/fill
+
+### Orden inexistente: 404 ORDER_NOT_FOUND
+POST {{baseUrl}}/v1/simulation/orders/9999/fill
