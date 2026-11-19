@@ -28,7 +28,7 @@ El enunciado solicita Node.js y deja libre la elección del framework HTTP, la f
 
 - Toda ruta declara schema de request y de response, así que solo se serializan los campos declarados.
 - Se rechazan las propiedades no declaradas (`additionalProperties: false`): un `price` en una orden `MARKET` es un `400`, no un campo que se descarta en silencio.
-- Las reglas cruzadas se expresan con uniones: `MARKET` sin `price` y `LIMIT` con `price`, `oneOf` entre `size` y `amount`.
+- Las reglas cruzadas se expresan con uniones: `MARKET` sin `price` y `LIMIT` con `price`, y exactamente uno entre `size` y `amount`.
 - Los decimales se validan con aritmética decimal, no con `multipleOf` sobre un `double`.
 - Un formateador propio lleva los errores de Ajv al formato de error de la API ([ADR-0005](ADR-0005-contrato-de-la-api.md)).
 - TypeBox valida solo la forma del request, las reglas de negocio viven en el dominio ([ADR-0002](ADR-0002-arquitectura-y-patrones-de-dominio.md)).
