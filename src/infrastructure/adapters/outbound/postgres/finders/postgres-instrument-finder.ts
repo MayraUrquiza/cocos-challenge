@@ -4,6 +4,7 @@ import type {
   InstrumentFinder,
   InstrumentMatch,
 } from '../../../../../application/ports/outbound/instrument-finder';
+import type { Instrument } from '../../../../../domain/shared/instrument';
 import type { DB } from '../../../../database/schema';
 import { toInstrument, toMarketPrice } from '../mappers/instrument';
 
@@ -13,6 +14,15 @@ function escapeLike(text: string): string {
 
 export class PostgresInstrumentFinder implements InstrumentFinder {
   constructor(private readonly db: Kysely<DB>) {}
+
+  async findByTicker(ticker: string): Promise<Instrument | null> {
+    const row = await this.db
+      .selectFrom('instruments')
+      .select(['id', 'ticker', 'name', 'type'])
+      .where('ticker', '=', ticker)
+      .executeTakeFirst();
+    return row ? toInstrument(row) : null;
+  }
 
   async search({
     text,
