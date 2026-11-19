@@ -1,4 +1,5 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import type { CancelOrder } from '../../../../../application/ports/inbound/cancel-order';
 import type { GetOrder } from '../../../../../application/ports/inbound/get-order';
 import type { GetPortfolio } from '../../../../../application/ports/inbound/get-portfolio';
 import type { ListOrders } from '../../../../../application/ports/inbound/list-orders';
@@ -17,6 +18,7 @@ export interface UseCases {
   getPortfolio: GetPortfolio;
   transferCash: TransferCash;
   placeOrder: PlaceOrder;
+  cancelOrder: CancelOrder;
 }
 
 export const v1Routes: FastifyPluginAsyncTypebox<{ useCases: UseCases }> = async (
@@ -28,6 +30,7 @@ export const v1Routes: FastifyPluginAsyncTypebox<{ useCases: UseCases }> = async
     getOrder: useCases.getOrder,
     listOrders: useCases.listOrders,
     placeOrder: useCases.placeOrder,
+    cancelOrder: useCases.cancelOrder,
   });
   await app.register(portfolioRoutes, { getPortfolio: useCases.getPortfolio });
   await app.register(transferRoutes, { transferCash: useCases.transferCash });
