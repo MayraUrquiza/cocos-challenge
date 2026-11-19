@@ -3,14 +3,16 @@ import { Money } from '../shared/money';
 import type { RejectReason } from '../shared/order-values';
 import type { Quantity } from '../shared/quantity';
 
+type RequestedAmount = { requestedAmount?: Money };
+
 export type AccountEvent =
-  | { type: 'OrderAccepted'; order: OrderDetails }
-  | { type: 'OrderFilled'; order: OrderDetails }
-  | {
+  | ({ type: 'OrderAccepted'; order: OrderDetails } & RequestedAmount)
+  | ({ type: 'OrderFilled'; order: OrderDetails } & RequestedAmount)
+  | ({
       type: 'OrderRejected';
       order: Omit<OrderDetails, 'size' | 'price'> & { size: Quantity | null; price: Money | null };
       reason: RejectReason;
-    }
+    } & RequestedAmount)
   | { type: 'OrderCancelled'; orderId: number }
   | { type: 'CashTransferredIn'; orderId: number; amount: Money }
   | { type: 'CashTransferredOut'; orderId: number; amount: Money }
