@@ -4,7 +4,7 @@ import type { TransferCash, TransferCashCommand } from '../../ports/inbound/tran
 import type { AccountRepository } from '../../ports/outbound/account-repository';
 import type { Clock } from '../../ports/outbound/clock';
 import type { InstrumentFinder } from '../../ports/outbound/instrument-finder';
-import type { OrderView } from '../../shared/order-view';
+import type { RecordedOrder } from '../../shared/idempotency';
 
 export class TransferCashHandler implements TransferCash {
   constructor(
@@ -13,7 +13,7 @@ export class TransferCashHandler implements TransferCash {
     private readonly clock: Clock,
   ) {}
 
-  async execute(command: TransferCashCommand): Promise<OrderView> {
+  async execute(command: TransferCashCommand): Promise<RecordedOrder> {
     const cash = await this.instrumentsFinder.findByTicker(CASH_TICKER);
     if (!cash || cash.type !== 'MONEDA') {
       throw new Error(`No está cargado el instrumento de los pesos (${CASH_TICKER}, tipo MONEDA)`);
@@ -29,7 +29,11 @@ export class TransferCashHandler implements TransferCash {
           amount: command.amount,
           cashInstrumentId: cash.id,
         }),
-      { occurredAt: this.clock.now(), correlationId: command.correlationId },
+      {
+        occurredAt: this.clock.now(),
+        correlationId: command.correlationId,
+        idempotency: command.idempotency,
+      },
     );
   }
 }

@@ -1,6 +1,6 @@
 import type { Money } from '../../../domain/shared/money';
 import type { Quantity } from '../../../domain/shared/quantity';
-import type { OrderView } from '../../shared/order-view';
+import type { IdempotencyKey, RecordedOrder } from '../../shared/idempotency';
 
 interface PlaceOrderBase {
   userId: number;
@@ -8,6 +8,7 @@ interface PlaceOrderBase {
   side: 'BUY' | 'SELL';
   quantity: { size: Quantity } | { amount: Money };
   correlationId: string | null;
+  idempotency: IdempotencyKey | null;
 }
 
 /**
@@ -20,5 +21,5 @@ export type PlaceOrderCommand =
   | (PlaceOrderBase & { type: 'LIMIT'; price: Money });
 
 export interface PlaceOrder {
-  execute(command: PlaceOrderCommand): Promise<OrderView>;
+  execute(command: PlaceOrderCommand): Promise<RecordedOrder>;
 }

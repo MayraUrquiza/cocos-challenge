@@ -2,7 +2,8 @@ export type ApplicationErrorCode =
   | 'USER_NOT_FOUND'
   | 'ORDER_NOT_FOUND'
   | 'INSTRUMENT_NOT_FOUND'
-  | 'INSTRUMENT_NOT_TRADABLE';
+  | 'INSTRUMENT_NOT_TRADABLE'
+  | 'IDEMPOTENCY_KEY_REUSED';
 
 export abstract class ApplicationError extends Error {
   abstract readonly code: ApplicationErrorCode;
@@ -42,5 +43,14 @@ export class InstrumentNotTradableError extends ApplicationError {
   constructor(readonly ticker: string) {
     super(`${ticker} no se puede operar con órdenes`);
     this.name = 'InstrumentNotTradableError';
+  }
+}
+
+export class IdempotencyKeyReusedError extends ApplicationError {
+  readonly code = 'IDEMPOTENCY_KEY_REUSED';
+
+  constructor(readonly key: string) {
+    super(`La Idempotency-Key "${key}" ya se usó con otro pedido`);
+    this.name = 'IdempotencyKeyReusedError';
   }
 }

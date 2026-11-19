@@ -3,15 +3,7 @@ import { eventFromSnapshot, type AccountEvent } from '../../../../domain/account
 import type { DB } from '../../../database/schema';
 import { toOrderSnapshot, type OrderRow } from './mappers/order';
 
-/**
- * Las órdenes de una cuenta que afectan sus saldos (ejecutadas y pendientes),
- * en el orden en que ocurrieron: por fecha y, si coinciden, por número
- * (RFC-001). Usa el índice (userId, status, instrumentId).
- *
- * La comparten el portfolio y el repositorio de la cuenta: el disponible que se
- * muestra y el que se valida salen de la misma lectura.
- */
-export function selectAccountOrders(db: Kysely<DB>, userId: number) {
+export function selectOrderRows(db: Kysely<DB>, userId: number) {
   return db
     .selectFrom('orders as o')
     .innerJoin('instruments as i', 'i.id', 'o.instrumentid')
@@ -30,7 +22,19 @@ export function selectAccountOrders(db: Kysely<DB>, userId: number) {
       'i.ticker as instrument_ticker',
       'i.name as instrument_name',
     ])
-    .where('o.userid', '=', userId)
+    .where('o.userid', '=', userId);
+}
+
+/**
+ * Las órdenes de una cuenta que afectan sus saldos (ejecutadas y pendientes),
+ * en el orden en que ocurrieron: por fecha y, si coinciden, por número
+ * (RFC-001). Usa el índice (userId, status, instrumentId).
+ *
+ * La comparten el portfolio y el repositorio de la cuenta: el disponible que se
+ * muestra y el que se valida salen de la misma lectura.
+ */
+export function selectAccountOrders(db: Kysely<DB>, userId: number) {
+  return selectOrderRows(db, userId)
     .where('o.status', 'in', ['FILLED', 'NEW'])
     .orderBy('o.datetime')
     .orderBy('o.id');
