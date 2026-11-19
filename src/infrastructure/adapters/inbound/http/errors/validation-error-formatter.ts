@@ -48,6 +48,22 @@ function toDetail(
       const field = fieldName([...base, String(params.additionalProperty)], context);
       return { field, message: `${field} no es un campo permitido` };
     }
+    case 'exactlyOneOf': {
+      const properties = params.properties as string[];
+      const present = params.present as string[];
+      const field = fieldName([...base, properties.at(-1)!], context);
+      const options = properties.join(' o ');
+      return {
+        field,
+        message: present.length > 1 ? `se debe enviar ${options}, no ambos` : `se debe enviar ${options}`,
+      };
+    }
+    case 'discriminator': {
+      const field = fieldName([...base, String(params.tag)], context);
+      const message =
+        params.tagValue === undefined ? `${field} es obligatorio` : `${field} no es un valor válido`;
+      return { field, message };
+    }
     default: {
       const field = fieldName(base, context);
       return { field, message: messageFor(error.keyword, field, params, error.message) };

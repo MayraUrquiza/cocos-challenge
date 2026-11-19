@@ -10,6 +10,8 @@ import { formatValidationErrors } from './validation-error-formatter';
 const STATUS_BY_APPLICATION_CODE: Record<ApplicationErrorCode, number> = {
   USER_NOT_FOUND: 404,
   ORDER_NOT_FOUND: 404,
+  INSTRUMENT_NOT_FOUND: 404,
+  INSTRUMENT_NOT_TRADABLE: 400,
 };
 
 const CODE_BY_STATUS: Partial<Record<number, ErrorCode>> = {

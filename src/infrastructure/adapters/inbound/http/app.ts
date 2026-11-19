@@ -5,6 +5,7 @@ import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { registerErrorHandling } from './errors/error-handler';
 import { ErrorResponseSchema } from './errors/error-response';
 import { genCorrelationId, registerRequestLogging } from './request-logging';
+import { exactlyOneOfKeyword } from './schemas/exactly-one-of';
 import { maxDecimalsKeyword } from './schemas/max-decimals';
 import { healthRoutes } from './routes/health';
 import { v1Routes, type UseCases } from './routes/v1';
@@ -35,8 +36,9 @@ export async function buildApp(deps: AppDependencies, options: BuildAppOptions =
         removeAdditional: false,
         coerceTypes: 'array',
         useDefaults: true,
+        discriminator: true,
       },
-      plugins: [maxDecimalsKeyword],
+      plugins: [maxDecimalsKeyword, exactlyOneOfKeyword],
     },
   }).withTypeProvider<TypeBoxTypeProvider>();
 
