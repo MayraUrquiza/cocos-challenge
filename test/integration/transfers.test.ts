@@ -125,13 +125,20 @@ describe('transferencias contra PostgreSQL', () => {
   });
 
   it('de dos retiros simultáneos que juntos superan los fondos, uno se rechaza', async () => {
-    await transferCash.execute({ userId: 2, type: 'CASH_OUT', amount: Money.of('199000.50'), correlationId: null });
-    const results = await Promise.all([
-      transferCash.execute({ userId: 2, type: 'CASH_OUT', amount: Money.of('600'), correlationId: null }),
-      transferCash.execute({ userId: 2, type: 'CASH_OUT', amount: Money.of('600'), correlationId: null }),
-    ]);
+    const cashOut = (amount: string) =>
+      transferCash.execute({
+        userId: 2,
+        type: 'CASH_OUT',
+        amount: Money.of(amount),
+        correlationId: null,
+        idempotency: null,
+      });
 
-    expect(results.map((order) => order.status).sort()).toEqual(['FILLED', 'REJECTED']);
+    await cashOut('199000.50');
+    // Quedan 1.000 pesos: cada retiro de 600 alcanza solo, los dos juntos no.
+    const results = await Promise.all([cashOut('600'), cashOut('600')]);
+
+    expect(results.map(({ order }) => order.status).sort()).toEqual(['FILLED', 'REJECTED']);
     const portfolio = await app.inject({ method: 'GET', url: '/v1/users/2/portfolio' });
     expect(portfolio.json().cash.total).toBe('400.00');
   });
