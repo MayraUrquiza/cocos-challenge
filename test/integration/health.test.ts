@@ -39,10 +39,13 @@ describe('GET /health contra PostgreSQL', () => {
     await app.inject({ method: 'GET', url: '/health' });
 
     // Otra conexión del mismo usuario corta las del pool, como en un reinicio de la base.
+    // Solo en esta base: las otras suites corren en paralelo, cada una con su base.
     const killer = createDatabase(testDatabaseUrl());
     await sql`
       SELECT pg_terminate_backend(pid) FROM pg_stat_activity
-      WHERE usename = current_user AND pid <> pg_backend_pid()
+      WHERE usename = current_user
+        AND datname = current_database()
+        AND pid <> pg_backend_pid()
     `.execute(killer);
     await killer.destroy();
     await waitFor(() => idleErrors.length > 0);
