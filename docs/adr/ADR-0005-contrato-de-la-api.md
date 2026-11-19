@@ -51,7 +51,7 @@ Podemos suponer que la API la consumirán aplicaciones web y móviles (el reposi
 }
 ```
 
-- `code` no cambia, mientras que `message` es para humanos y puede cambiar. Los valores posibles de `code` están en la tabla del punto 2.
+- `code` no cambia, mientras que `message` es para humanos y puede cambiar. Los `code` de negocio y de validación están en la tabla del punto 2. Los errores del propio framework tienen los suyos: `NOT_FOUND` para una ruta inexistente (como la simulación apagada), `METHOD_NOT_ALLOWED`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE` y `REQUEST_ERROR` para el resto.
 - `details` solo aparece en los errores de validación.
 - El formato extiende el de Fastify (`statusCode`, `error`, `message`), así que los errores del propio framework tienen la misma forma.
 - Un `500` nunca expone detalles internos, que van al log con el `correlationId`.
@@ -99,7 +99,7 @@ Podemos suponer que la API la consumirán aplicaciones web y móviles (el reposi
 **Por qué:** si el cliente no recibe la respuesta de un `POST` (por un timeout o un corte) y reintenta, la orden o la transferencia se registraría dos veces. En una API que mueve dinero, un duplicado es un error contable.
 
 - El envío de órdenes y las transferencias aceptan un header opcional `Idempotency-Key`, de hasta 64 caracteres, generado por el cliente. Se recomienda un UUID por intención, reutilizado en cada reintento.
-- La clave es **única por usuario** y se guarda con la orden, junto con un hash del body. Se revisa con la cuenta bloqueada, así que dos reintentos simultáneos no crean dos órdenes ([ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md)).
+- La clave es **única por usuario** y se guarda con la orden, junto con un hash de la ruta y el body. Se revisa con la cuenta bloqueada, así que dos reintentos simultáneos no crean dos órdenes ([ADR-0003](ADR-0003-persistencia-consistencia-y-cantidades.md)).
 
   | Situación | Respuesta |
   |---|---|
@@ -114,15 +114,17 @@ Podemos suponer que la API la consumirán aplicaciones web y móviles (el reposi
 
 | Método | Ruta | Respuestas |
 |---|---|---|
-| `GET` | `/v1/users/{userId}/portfolio` | `200`, `404` |
+| `GET` | `/v1/users/{userId}/portfolio` | `200`, `400`, `404` |
 | `GET` | `/v1/instruments?q=&limit=&offset=` | `200`, `400` |
 | `POST` | `/v1/users/{userId}/orders` | `201`, `400`, `404`, `409` |
-| `GET` | `/v1/users/{userId}/orders?limit=&offset=` | `200`, `404` |
-| `GET` | `/v1/users/{userId}/orders/{orderId}` | `200`, `404` |
-| `POST` | `/v1/users/{userId}/orders/{orderId}/cancel` | `200`, `404`, `409` |
+| `GET` | `/v1/users/{userId}/orders?limit=&offset=` | `200`, `400`, `404` |
+| `GET` | `/v1/users/{userId}/orders/{orderId}` | `200`, `400`, `404` |
+| `POST` | `/v1/users/{userId}/orders/{orderId}/cancel` | `200`, `400`, `404`, `409` |
 | `POST` | `/v1/users/{userId}/transfers` | `201`, `400`, `404`, `409` |
-| `POST` | `/v1/simulation/orders/{orderId}/fill` (solo con `MARKET_SIMULATION_ENABLED`) | `200`, `404`, `409` |
+| `POST` | `/v1/simulation/orders/{orderId}/fill` (solo con `MARKET_SIMULATION_ENABLED`) | `200`, `400`, `404`, `409` |
 | `GET` | `/health` | `200`, `503` |
+
+Toda ruta con parámetros responde `400` si un id o un parámetro de la query no es válido.
 
 ### Cómo se verifica
 
