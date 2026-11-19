@@ -93,6 +93,8 @@ function messageFor(
       return `${field} no tiene el formato esperado`;
     case 'format':
       return `${field} debe tener formato ${String(params.format)}`;
+    case 'maxDecimals':
+      return `${field} debe tener como máximo ${String(params.limit)} decimales`;
     default:
       return fallback ? `${field} ${fallback}` : `${field} no es válido`;
   }

@@ -1,3 +1,4 @@
+import { TransferCashHandler } from './application/use-cases/commands/transfer-cash';
 import { GetOrderHandler } from './application/use-cases/queries/get-order';
 import { GetPortfolioHandler } from './application/use-cases/queries/get-portfolio';
 import { ListOrdersHandler } from './application/use-cases/queries/list-orders';
@@ -8,6 +9,8 @@ import { PostgresOrderFinder } from './infrastructure/adapters/outbound/postgres
 import { PostgresPortfolioFinder } from './infrastructure/adapters/outbound/postgres/finders/postgres-portfolio-finder';
 import { PostgresPriceProvider } from './infrastructure/adapters/outbound/postgres/finders/postgres-price-provider';
 import { PostgresUserFinder } from './infrastructure/adapters/outbound/postgres/finders/postgres-user-finder';
+import { PostgresAccountRepository } from './infrastructure/adapters/outbound/postgres/repositories/postgres-account-repository';
+import { SystemClock } from './infrastructure/adapters/outbound/system/system-clock';
 import { ConfigError, loadConfig } from './infrastructure/config/config';
 import { loadDotEnv } from './infrastructure/config/dotenv';
 import { checkDatabase, createDatabase } from './infrastructure/database/connection';
@@ -28,6 +31,8 @@ async function main(): Promise<void> {
   const orderFinder = new PostgresOrderFinder(db);
   const portfolioFinder = new PostgresPortfolioFinder(db);
   const priceProvider = new PostgresPriceProvider(db);
+  const accountRepository = new PostgresAccountRepository(db);
+  const clock = new SystemClock();
 
   app = await buildApp(
     {
@@ -37,6 +42,7 @@ async function main(): Promise<void> {
         getOrder: new GetOrderHandler(userFinder, orderFinder),
         listOrders: new ListOrdersHandler(userFinder, orderFinder),
         getPortfolio: new GetPortfolioHandler(portfolioFinder, priceProvider),
+        transferCash: new TransferCashHandler(accountRepository, instrumentFinder, clock),
       },
     },
     { logger: loggerOptions(config.logLevel) },
